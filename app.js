@@ -192,7 +192,24 @@ async function saveUserProgress() {
     
     // If user is authenticated, also store in Supabase
     if (user) {
+      console.log('Saving to Supabase:', { completedGoals, totalPoints });
+      
       const completedGoalsArray = Array.from(completedGoals);
+      
+      // Recalculate totalPoints from completedGoals to ensure accuracy
+      let calculatedPoints = 0;
+      completedGoalsArray.forEach(goalId => {
+        const [categoryId, ...goalTextParts] = goalId.split('-');
+        const goalText = goalTextParts.join('-');
+        const goal = categories[categoryId]?.goals.find(g => g.text === goalText);
+        if (goal) {
+          calculatedPoints += goal.points;
+        }
+      });
+      
+      // Use calculated points to ensure consistency
+      totalPoints = calculatedPoints;
+      
       const userData = {
         user_id: user.id,
         completed_goals: completedGoalsArray,
@@ -208,7 +225,13 @@ async function saveUserProgress() {
           { onConflict: 'user_id' }
         );
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error saving to Supabase:', error);
+        throw error;
+      }
+      
+      // Update points display after saving
+      updateProgress();
     }
     
     // Update last updated display
@@ -270,6 +293,11 @@ async function loadUserProgress() {
       localStorage.setItem(STORAGE_KEYS.LAST_UPDATED, data.last_updated);
       
       displayLastUpdated();
+      
+      // Update UI after loading data from Supabase
+      renderCategories();
+      updateProgress();
+      
       return true;
     } else {
       // No data found in Supabase, try localStorage
@@ -476,28 +504,53 @@ async function toggleGoalCompletion(li, span, button) {
  * Update progress and points
  */
 function updateProgress() {
-  // Cache DOM queries to improve performance
-  const allGoalItems = document.querySelectorAll('li');
+  // Get all goal items with the correct selector for the current DOM structure
+  const allGoalItems = document.querySelectorAll('.goal-item');
   
-  let maxPoints = 0;
+  // Calculate total possible points and earned points
   let earnedPoints = 0;
   
-  // Calculate total possible points
-  allGoalItems.forEach((li) => {
-    const points = parseInt(li.dataset.points);
-    maxPoints += points;
-    
-    if (li.classList.contains('completed')) {
-      earnedPoints += points;
+  // Use the completedGoals set to calculate earned points
+  completedGoals.forEach(goalId => {
+    const [categoryId, ...goalTextParts] = goalId.split('-');
+    const goalText = goalTextParts.join('-');
+    const goal = categories[categoryId]?.goals.find(g => g.text === goalText);
+    if (goal) {
+      earnedPoints += goal.points;
     }
   });
   
-  // Update points display
-  elements.totalPoints.innerText = earnedPoints;
+  // Update points display in DOM
+  if (elements.totalPoints) {
+    elements.totalPoints.textContent = earnedPoints;
+  } else {
+    // Fallback if elements cache is not initialized
+    const totalPointsElement = document.getElementById('totalPoints');
+    if (totalPointsElement) {
+      totalPointsElement.textContent = earnedPoints;
+    }
+  }
+  
+  // Make sure totalPoints variable is updated
+  totalPoints = earnedPoints;
   
   // Update progress bar
   const percentage = maxPoints > 0 ? (earnedPoints / maxPoints) * 100 : 0;
-  elements.progressFill.style.width = percentage + '%';
+  if (elements.progressFill) {
+    elements.progressFill.style.width = percentage + '%';
+  } else {
+    // Fallback if elements cache is not initialized
+    const progressFill = document.getElementById('progressFill');
+    if (progressFill) {
+      progressFill.style.width = percentage + '%';
+    }
+  }
+  
+  // Update progress percentage text if it exists
+  const progressPercentage = document.getElementById('progressPercentage');
+  if (progressPercentage) {
+    progressPercentage.textContent = `${Math.round(percentage)}%`;
+  }
 }
 
 // Initialize the app when the DOM is fully loaded
