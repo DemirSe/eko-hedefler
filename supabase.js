@@ -15,33 +15,20 @@ export const auth = {
     return user
   },
   
-  // Sign up
-  signUp: async (username, password) => {
-    // Generate a fake email using the username for Supabase auth
-    const email = `${username}@example.com`;
-    
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+  // Sign in with Google
+  signInWithGoogle: async () => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
       options: {
-        data: {
-          username: username,
-          email_confirmed: true
-        }
+        redirectTo: window.location.origin + '/index.html',
       }
     })
     return { data, error }
   },
   
-  // Sign in
-  signIn: async (username, password) => {
-    // Generate a fake email using the username for Supabase auth
-    const email = `${username}@example.com`;
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+  // Get redirect result (for OAuth providers like Google)
+  getRedirectResult: async () => {
+    const { data, error } = await supabase.auth.getSession()
     return { data, error }
   },
   

@@ -15,26 +15,6 @@
       box-shadow: 0 4px 10px var(--shadow-color);
     }
     
-    .form-group {
-      margin-bottom: 20px;
-    }
-    
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: 600;
-    }
-    
-    .form-group input {
-      width: 100%;
-      padding: 10px;
-      border: 2px solid #ddd;
-      border-radius: 5px;
-      font-size: 16px;
-      background-color: var(--container-bg);
-      color: var(--text-color);
-    }
-    
     .auth-btn {
       width: 100%;
       padding: 12px;
@@ -46,10 +26,37 @@
       font-weight: 600;
       cursor: pointer;
       transition: background-color 0.3s;
+      margin-bottom: 15px;
     }
     
     .auth-btn:hover {
       background-color: var(--dark-green);
+    }
+    
+    .google-btn {
+      width: 100%;
+      padding: 12px;
+      background-color: #ffffff;
+      color: #757575;
+      border: 1px solid #dddddd;
+      border-radius: 5px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .google-btn:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .google-btn img {
+      margin-right: 10px;
+      width: 18px;
+      height: 18px;
     }
     
     .auth-links {
@@ -89,22 +96,13 @@
       <h2>Giriş Yap</h2>
       <div id="error-message" class="error-message"></div>
       
-      <form id="login-form">
-        <div class="form-group">
-          <label for="username">Kullanıcı Adı</label>
-          <input type="text" id="username" name="username" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="password">Şifre</label>
-          <input type="password" id="password" name="password" required>
-        </div>
-        
-        <button type="submit" class="auth-btn">Giriş Yap</button>
-      </form>
+      <button id="google-login-btn" class="google-btn">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google logo">
+        Google ile Giriş Yap
+      </button>
       
-      <div class="auth-links">
-        <p>Hesabınız yok mu? <a href="signup.html">Kaydolun</a></p>
+      <div class="auth-info" style="margin-top: 20px; text-align: center; color: var(--text-color);">
+        <p>Uygulamayı kullanmak için Google hesabınızla giriş yapın.</p>
       </div>
     </div>
   </div>
