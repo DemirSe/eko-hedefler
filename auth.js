@@ -79,11 +79,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Show success message
-        successMessage.textContent = 'Kaydınız başarıyla oluşturuldu! Lütfen e-posta adresinizi doğrulayın.';
+        successMessage.textContent = 'Kaydınız başarıyla oluşturuldu! Hemen giriş yapabilirsiniz.';
         successMessage.style.display = 'block';
         
         // Clear form
         signupForm.reset();
+        
+        // Add redirect to login page after a short delay
+        setTimeout(() => {
+          window.location.href = 'login.html';
+        }, 2000);
       } catch (error) {
         errorMessage.textContent = error.message || 'Kayıt olurken bir hata oluştu.';
         errorMessage.style.display = 'block';
