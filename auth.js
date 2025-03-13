@@ -30,9 +30,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const errorMessage = document.getElementById('error-message');
       
       try {
+        console.log('Attempting login with:', { email, password: '******' });
         const { data, error } = await auth.signIn(email, password);
         
         if (error) {
+          console.error('Login error details:', error);
           throw error;
         }
         
@@ -42,7 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Redirect to the main app
         window.location.href = 'index.html';
       } catch (error) {
-        errorMessage.textContent = error.message || 'Giriş yapılırken bir hata oluştu.';
+        console.error('Full error object:', error);
+        errorMessage.textContent = `Error: ${error.message}` || 'Giriş yapılırken bir hata oluştu.';
         errorMessage.style.display = 'block';
       }
     });
@@ -72,11 +75,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       try {
+        console.log('Attempting signup with:', { email, password: '******' });
         const { data, error } = await auth.signUp(email, password);
         
         if (error) {
+          console.error('Signup error details:', error);
           throw error;
         }
+        
+        console.log('Signup successful:', data);
         
         // Show success message
         successMessage.textContent = 'Kaydınız başarıyla oluşturuldu! Hemen giriş yapabilirsiniz.';
@@ -90,7 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
           window.location.href = 'login.html';
         }, 2000);
       } catch (error) {
-        errorMessage.textContent = error.message || 'Kayıt olurken bir hata oluştu.';
+        console.error('Full signup error:', error);
+        errorMessage.textContent = `Error: ${error.message}` || 'Kayıt olurken bir hata oluştu.';
         errorMessage.style.display = 'block';
       }
     });

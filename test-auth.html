@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Authentication Test - Eko Hedef İzleyici</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: var(--container-bg);
+    }
+    
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 5px;
+      background-color: rgba(0, 0, 0, 0.05);
+      white-space: pre-wrap;
+      font-family: monospace;
+    }
+    
+    button {
+      padding: 8px 16px;
+      background-color: var(--primary-green);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    
+    input {
+      padding: 8px;
+      margin-right: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Authentication Testing Page</h1>
+    <p>Use this page to debug authentication issues</p>
+    
+    <div class="test-section">
+      <h2>Check Current User</h2>
+      <button id="check-user-btn">Check Current User</button>
+      <div id="user-result" class="result">Results will appear here...</div>
+    </div>
+    
+    <div class="test-section">
+      <h2>Test Login</h2>
+      <div>
+        <input type="email" id="login-email" placeholder="Email">
+        <input type="password" id="login-password" placeholder="Password">
+        <button id="test-login-btn">Test Login</button>
+      </div>
+      <div id="login-result" class="result">Results will appear here...</div>
+    </div>
+    
+    <div class="test-section">
+      <h2>Test Signup</h2>
+      <div>
+        <input type="email" id="signup-email" placeholder="Email">
+        <input type="password" id="signup-password" placeholder="Password">
+        <button id="test-signup-btn">Test Signup</button>
+      </div>
+      <div id="signup-result" class="result">Results will appear here...</div>
+    </div>
+    
+    <div class="test-section">
+      <h2>Test Supabase Connection</h2>
+      <button id="test-connection-btn">Test Connection</button>
+      <div id="connection-result" class="result">Results will appear here...</div>
+    </div>
+    
+    <div>
+      <a href="index.html">Back to Main App</a>
+    </div>
+  </div>
+  
+  <script type="module">
+    import { auth, supabase } from './supabase.js';
+    
+    // Check current user
+    document.getElementById('check-user-btn').addEventListener('click', async () => {
+      const resultDiv = document.getElementById('user-result');
+      resultDiv.textContent = 'Checking...';
+      
+      try {
+        const user = await auth.getCurrentUser();
+        resultDiv.textContent = user ? 
+          `Logged in as: ${JSON.stringify(user, null, 2)}` : 
+          'No user currently logged in';
+      } catch (error) {
+        resultDiv.textContent = `Error: ${error.message}\n\n${JSON.stringify(error, null, 2)}`;
+      }
+    });
+    
+    // Test login
+    document.getElementById('test-login-btn').addEventListener('click', async () => {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      const resultDiv = document.getElementById('login-result');
+      
+      resultDiv.textContent = 'Testing login...';
+      
+      try {
+        const result = await auth.signIn(email, password);
+        resultDiv.textContent = `Login result: ${JSON.stringify(result, null, 2)}`;
+      } catch (error) {
+        resultDiv.textContent = `Error: ${error.message}\n\n${JSON.stringify(error, null, 2)}`;
+      }
+    });
+    
+    // Test signup
+    document.getElementById('test-signup-btn').addEventListener('click', async () => {
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+      const resultDiv = document.getElementById('signup-result');
+      
+      resultDiv.textContent = 'Testing signup...';
+      
+      try {
+        const result = await auth.signUp(email, password);
+        resultDiv.textContent = `Signup result: ${JSON.stringify(result, null, 2)}`;
+      } catch (error) {
+        resultDiv.textContent = `Error: ${error.message}\n\n${JSON.stringify(error, null, 2)}`;
+      }
+    });
+    
+    // Test connection
+    document.getElementById('test-connection-btn').addEventListener('click', async () => {
+      const resultDiv = document.getElementById('connection-result');
+      resultDiv.textContent = 'Testing connection...';
+      
+      try {
+        // Simple query to test connection
+        const { data, error } = await supabase.from('user_progress').select('count(*)', { count: 'exact' });
+        
+        if (error) throw error;
+        
+        resultDiv.textContent = `Connection successful. Count query result: ${JSON.stringify(data, null, 2)}`;
+      } catch (error) {
+        resultDiv.textContent = `Connection error: ${error.message}\n\n${JSON.stringify(error, null, 2)}`;
+      }
+    });
+  </script>
+</body>
+</html> 
