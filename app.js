@@ -74,9 +74,12 @@ function initApp() {
     progressContainer: document.querySelector('.progress-container')
   };
 
+  // Load saved data first
+  loadFromLocalStorage();
+  
+  // Then render categories with the loaded data
   renderCategories();
   setupEventListeners();
-  loadFromLocalStorage();
   updateProgress();
 }
 
@@ -125,6 +128,9 @@ function loadFromLocalStorage() {
     
     // Display last updated time if available
     displayLastUpdated();
+    
+    // Update UI after loading the data
+    updateUI();
   } catch (error) {
     console.error('Failed to load from localStorage:', error);
     // Could add a user notification here
