@@ -25,12 +25,12 @@ document.addEventListener('DOMContentLoaded', () => {
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const email = document.getElementById('email').value;
+      const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
       const errorMessage = document.getElementById('error-message');
       
       try {
-        const { data, error } = await auth.signIn(email, password);
+        const { data, error } = await auth.signIn(username, password);
         
         if (error) {
           throw error;
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
     signupForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const email = document.getElementById('email').value;
+      const username = document.getElementById('username').value;
       const password = document.getElementById('password').value;
       const confirmPassword = document.getElementById('confirm-password').value;
       const errorMessage = document.getElementById('error-message');
@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       try {
-        const { data, error } = await auth.signUp(email, password);
+        const { data, error } = await auth.signUp(username, password);
         
         if (error) {
           throw error;
@@ -99,34 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle forgot password link
   const forgotPasswordLink = document.getElementById('forgot-password');
   if (forgotPasswordLink) {
-    forgotPasswordLink.addEventListener('click', async (e) => {
+    forgotPasswordLink.addEventListener('click', (e) => {
       e.preventDefault();
       
-      const email = document.getElementById('email').value;
       const errorMessage = document.getElementById('error-message');
-      
-      if (!email) {
-        errorMessage.textContent = 'Lütfen e-posta adresinizi giriniz.';
-        errorMessage.style.display = 'block';
-        return;
-      }
-      
-      try {
-        const { error } = await auth.resetPassword(email);
-        
-        if (error) {
-          throw error;
-        }
-        
-        // Show success message
-        errorMessage.textContent = 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.';
-        errorMessage.style.display = 'block';
-        errorMessage.style.color = '#27ae60';
-        errorMessage.style.backgroundColor = 'rgba(46, 204, 113, 0.1)';
-      } catch (error) {
-        errorMessage.textContent = error.message || 'Şifre sıfırlama bağlantısı gönderilirken bir hata oluştu.';
-        errorMessage.style.display = 'block';
-      }
+      errorMessage.textContent = 'Kullanıcı adınızı hatırlamıyorsanız, lütfen yönetici ile iletişime geçin.';
+      errorMessage.style.display = 'block';
     });
   }
 }); 

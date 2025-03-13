@@ -16,13 +16,16 @@ export const auth = {
   },
   
   // Sign up
-  signUp: async (email, password) => {
+  signUp: async (username, password) => {
+    // Generate a fake email using the username for Supabase auth
+    const email = `${username}@example.com`;
+    
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: window.location.origin + '/index.html',
         data: {
+          username: username,
           email_confirmed: true
         }
       }
@@ -31,7 +34,10 @@ export const auth = {
   },
   
   // Sign in
-  signIn: async (email, password) => {
+  signIn: async (username, password) => {
+    // Generate a fake email using the username for Supabase auth
+    const email = `${username}@example.com`;
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -45,11 +51,8 @@ export const auth = {
     return { error }
   },
   
-  // Send password reset email
+  // We don't need resetPassword for username-based auth, but keeping a stub
   resetPassword: async (email) => {
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + '/reset-password.html',
-    })
-    return { data, error }
+    return { error: { message: 'Password reset not available for username-based authentication' } }
   }
 } 
