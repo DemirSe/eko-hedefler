@@ -8,13 +8,7 @@ import { auth, supabase } from './supabase.js';
 // Check if user is authenticated
 async function checkAuth() {
   const user = await auth.getCurrentUser();
-  
-  if (!user) {
-    // Redirect to login page if not authenticated
-    window.location.href = 'login.html';
-    return null;
-  }
-  
+  // Return the user (or null) without redirecting
   return user;
 }
 
@@ -81,25 +75,42 @@ const STORAGE_KEYS = {
  * Initialize the application
  */
 async function initApp() {
-  // Check if user is authenticated
+  // Check if user is authenticated, but don't force redirect
   const user = await checkAuth();
-  if (!user) return; // Stop initialization if not authenticated
   
-  // Add a welcome message with the user's email
+  // Add user info or login/register buttons to the header
   const headerElement = document.querySelector('.app-header');
   const userInfoDiv = document.createElement('div');
   userInfoDiv.className = 'user-info';
-  userInfoDiv.innerHTML = `
-    <span>Merhaba, ${user.email}</span>
-    <button id="logout-btn" class="btn-small">Çıkış Yap</button>
-  `;
-  headerElement.appendChild(userInfoDiv);
   
-  // Add logout functionality
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    await auth.signOut();
-    window.location.href = 'login.html';
-  });
+  if (user) {
+    // User is logged in - show welcome and logout button
+    userInfoDiv.innerHTML = `
+      <span>Merhaba, ${user.email}</span>
+      <button id="logout-btn" class="btn-small">Çıkış Yap</button>
+    `;
+    // Add logout functionality
+    headerElement.appendChild(userInfoDiv);
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await auth.signOut();
+      window.location.reload(); // Reload the page after logout
+    });
+  } else {
+    // User is not logged in - show login/register buttons
+    userInfoDiv.innerHTML = `
+      <button id="login-btn" class="btn-small">Giriş Yap</button>
+      <button id="register-btn" class="btn-small">Kaydol</button>
+    `;
+    headerElement.appendChild(userInfoDiv);
+    
+    // Add login and register button functionality
+    document.getElementById('login-btn').addEventListener('click', () => {
+      window.location.href = 'login.html';
+    });
+    document.getElementById('register-btn').addEventListener('click', () => {
+      window.location.href = 'signup.html';
+    });
+  }
   
   // Cache DOM elements
   elements = {
@@ -110,7 +121,14 @@ async function initApp() {
   };
 
   // Load saved data from Supabase or localStorage
-  await loadUserProgress();
+  let dataLoaded = false;
+  if (user) {
+    // If logged in, try to load from Supabase
+    dataLoaded = await loadUserProgress();
+  } else {
+    // If not logged in, only try to load from localStorage
+    dataLoaded = loadFromLocalStorage();
+  }
   
   // Then render categories with the loaded data
   renderCategories();
@@ -123,14 +141,42 @@ async function initApp() {
  */
 function setupEventListeners() {
   // Event delegation for goal buttons
-  elements.categoriesContainer.addEventListener('click', (event) => {
+  elements.categoriesContainer.addEventListener('click', async (event) => {
     const button = event.target.closest('button');
-    if (!button) return; // Not a button click
+    if (!button || !button.classList.contains('toggle-button')) return; // Not a toggle button click
     
-    const listItem = button.closest('li');
-    const textSpan = listItem.querySelector('.goal-text');
+    const goalItem = button.closest('.goal-item');
+    if (!goalItem) return;
     
-    toggleGoalCompletion(listItem, textSpan, button);
+    const goalId = goalItem.dataset.goalId;
+    if (!goalId) return;
+    
+    const [categoryId, ...goalTextParts] = goalId.split('-');
+    const goalText = goalTextParts.join('-'); // In case goal text has hyphens
+    
+    const goal = categories[categoryId]?.goals.find(g => g.text === goalText);
+    if (!goal) return;
+    
+    const textSpan = goalItem.querySelector('.goal-text');
+    
+    // Toggle goal completion
+    if (completedGoals.has(goalId)) {
+      completedGoals.delete(goalId);
+      totalPoints -= goal.points;
+      textSpan.classList.remove('completed');
+      button.classList.remove('completed');
+      button.textContent = 'Tamamla';
+    } else {
+      completedGoals.add(goalId);
+      totalPoints += goal.points;
+      textSpan.classList.add('completed');
+      button.classList.add('completed');
+      button.textContent = 'Geri Al';
+    }
+    
+    // Update progress and save
+    updateProgress();
+    await saveUserProgress();
   });
 }
 
@@ -140,30 +186,30 @@ function setupEventListeners() {
 async function saveUserProgress() {
   try {
     const user = await auth.getCurrentUser();
-    if (!user) return;
     
-    const completedGoalsArray = Array.from(completedGoals);
-    const userData = {
-      user_id: user.id,
-      completed_goals: completedGoalsArray,
-      points: totalPoints,
-      last_updated: new Date().toISOString()
-    };
+    // Always store in localStorage regardless of authentication
+    saveToLocalStorage();
     
-    // Save to Supabase
-    const { error } = await supabase
-      .from('user_progress')
-      .upsert(
-        userData,
-        { onConflict: 'user_id' }
-      );
-    
-    if (error) throw error;
-    
-    // Also save to localStorage as backup
-    localStorage.setItem(STORAGE_KEYS.COMPLETED_GOALS, JSON.stringify(completedGoalsArray));
-    localStorage.setItem(STORAGE_KEYS.POINTS, totalPoints.toString());
-    localStorage.setItem(STORAGE_KEYS.LAST_UPDATED, userData.last_updated);
+    // If user is authenticated, also store in Supabase
+    if (user) {
+      const completedGoalsArray = Array.from(completedGoals);
+      const userData = {
+        user_id: user.id,
+        completed_goals: completedGoalsArray,
+        points: totalPoints,
+        last_updated: new Date().toISOString()
+      };
+      
+      // Save to Supabase
+      const { error } = await supabase
+        .from('user_progress')
+        .upsert(
+          userData,
+          { onConflict: 'user_id' }
+        );
+      
+      if (error) throw error;
+    }
     
     // Update last updated display
     displayLastUpdated();
@@ -335,7 +381,7 @@ function createGoalItem(categoryId, goal) {
       <span class="goal-text ${isCompleted ? 'completed' : ''}">${goal.text}</span>
       <div class="goal-actions">
         <span class="points-badge">${goal.points} Puan</span>
-        <button onclick="toggleGoal('${categoryId}', '${goal.text}')" class="toggle-button">
+        <button class="toggle-button ${isCompleted ? 'completed' : ''}">
           ${isCompleted ? 'Geri Al' : 'Tamamla'}
         </button>
       </div>
@@ -360,9 +406,10 @@ async function toggleGoal(categoryId, goalText) {
     totalPoints += goal.points;
   }
   
+  // Update UI
   updateUI();
   
-  // Save progress to Supabase
+  // Save progress (works for both authenticated and non-authenticated users)
   await saveUserProgress();
 }
 
@@ -410,14 +457,18 @@ async function toggleGoalCompletion(li, span, button) {
   if (completedGoals.has(goalId)) {
     completedGoals.delete(goalId);
     totalPoints -= goal.points;
+    span.classList.remove('completed');
+    button.textContent = 'Tamamla';
   } else {
     completedGoals.add(goalId);
     totalPoints += goal.points;
+    span.classList.add('completed');
+    button.textContent = 'Geri Al';
   }
   
-  updateUI();
+  updateProgress();
   
-  // Save progress to Supabase
+  // Save progress (works for both authenticated and non-authenticated users)
   await saveUserProgress();
 }
 

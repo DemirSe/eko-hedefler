@@ -418,9 +418,60 @@ button:hover {
   border-radius: 4px;
   font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: background-color 0.3s, transform 0.2s;
 }
 
 .btn-small:hover {
   background-color: var(--dark-green);
+  transform: translateY(-2px);
+}
+
+#login-btn {
+  background-color: var(--primary-green);
+}
+
+#register-btn {
+  background-color: var(--dark-green);
+}
+
+/* Responsive adjustments for user info */
+@media (max-width: 768px) {
+  .user-info {
+    position: absolute;
+    top: 10px;
+    right: 60px; /* Leave space for theme toggle */
+    padding: 5px;
+    background: transparent;
+    box-shadow: none;
+  }
+  
+  .btn-small {
+    font-size: 12px;
+    padding: 5px 8px;
+  }
+}
+
+/* Toggle button styles */
+.toggle-button {
+  padding: 5px 10px;
+  background-color: var(--primary-green);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.toggle-button:hover {
+  background-color: var(--dark-green);
+  transform: translateY(-2px);
+}
+
+.toggle-button.completed {
+  background-color: #e74c3c; /* Red for "undo" */
+}
+
+.toggle-button.completed:hover {
+  background-color: #c0392b; /* Darker red on hover */
 } 
