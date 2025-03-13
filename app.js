@@ -366,6 +366,9 @@ async function toggleGoal(categoryId, goalText) {
   await saveUserProgress();
 }
 
+// Make toggleGoal accessible globally
+window.toggleGoal = toggleGoal;
+
 function updateUI() {
   const container = document.getElementById('categories-container');
   container.innerHTML = '';
