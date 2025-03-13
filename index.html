@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <title>Eko Hedef İzleyici</title>
+  <style>
+    :root {
+      --primary-green: #2ecc71;
+      --dark-green: #27ae60;
+      --light-green: #a8e6cf;
+      --bg-color: #f0f8f1;
+      --text-color: #2c3e50;
+      --shadow-color: rgba(0, 0, 0, 0.1);
+      --transition-speed: 0.3s;
+      --container-bg: white;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #1a1a1a;
+      --text-color: #ecf0f1;
+      --shadow-color: rgba(0, 0, 0, 0.3);
+      --container-bg: #2a2a2a;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color var(--transition-speed), color var(--transition-speed);
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin: 0;
+      background: linear-gradient(45deg, var(--primary-green), var(--light-green));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 2px 2px 4px var(--shadow-color);
+    }
+
+    .progress-container {
+      background: var(--container-bg);
+      border-radius: 16px;
+      padding: 20px;
+      margin: 2rem 0;
+      box-shadow: 0 4px 6px var(--shadow-color);
+      transition: transform var(--transition-speed);
+    }
+
+    .progress-container:hover {
+      transform: translateY(-2px);
+    }
+
+    .points-display {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .points-total {
+      font-size: 3rem;
+      font-weight: bold;
+      color: var(--primary-green);
+      text-shadow: 0 2px 4px var(--shadow-color);
+      animation: pointsPulse 2s infinite;
+    }
+
+    @keyframes pointsPulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    .points-label {
+      font-size: 1.2rem;
+      color: var(--text-color);
+      opacity: 0.8;
+    }
+
+    .progress-bar {
+      height: 12px;
+      background: #e0e0e0;
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 1rem 0;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--light-green), var(--primary-green));
+      transition: width 0.5s ease-in-out;
+      border-radius: 6px;
+      position: relative;
+    }
+
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(
+        90deg,
+        rgba(255,255,255,0.1) 0%,
+        rgba(255,255,255,0.3) 50%,
+        rgba(255,255,255,0.1) 100%
+      );
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .category {
+      background: var(--container-bg);
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+      box-shadow: 0 2px 4px var(--shadow-color);
+      transition: all var(--transition-speed);
+    }
+
+    .category:hover {
+      box-shadow: 0 4px 8px var(--shadow-color);
+    }
+
+    .category-header {
+      padding: 1rem;
+      background: var(--primary-green);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .category-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .category-progress {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    .category-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height var(--transition-speed);
+    }
+
+    .category.expanded .category-content {
+      max-height: 1000px;
+    }
+
+    .goal-item {
+      padding: 1rem;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background-color var(--transition-speed);
+    }
+
+    .goal-item:hover {
+      background-color: rgba(46, 204, 113, 0.05);
+    }
+
+    .goal-text {
+      flex: 1;
+      margin-right: 1rem;
+    }
+
+    .goal-text.completed {
+      text-decoration: line-through;
+      opacity: 0.7;
+    }
+
+    .points-badge {
+      background: var(--light-green);
+      color: var(--text-color);
+      padding: 0.3rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: bold;
+      margin-right: 1rem;
+    }
+
+    button {
+      background: var(--primary-green);
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all var(--transition-speed);
+    }
+
+    button:hover {
+      background: var(--dark-green);
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .filters-section {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    select {
+      padding: 0.5rem;
+      border-radius: 6px;
+      border: 1px solid var(--light-green);
+      background: white;
+      color: var(--text-color);
+      cursor: pointer;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--primary-green);
+      box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.2);
+    }
+
+    @media (max-width: 600px) {
+      .filters-section {
+        flex-direction: column;
+      }
+      
+      .filter-group {
+        width: 100%;
+      }
+      
+      select {
+        width: 100%;
+      }
+    }
+
+    /* Dark mode overrides for elements with fixed backgrounds */
+    [data-theme="dark"] .progress-container,
+    [data-theme="dark"] .category {
+      background: #2a2a2a;
+      color: var(--text-color);
+    }
+
+    [data-theme="dark"] select {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      color: var(--text-color);
+    }
+
+    /* End of dark mode overrides */
+
+    [data-theme="dark"] .category-header {
+      background: #1E8449;
+    }
+
+    [data-theme="dark"] .points-badge {
+      background: #27ae60;
+      color: white;
+    }
+
+    [data-theme="dark"] button.toggle-button {
+      background: #27ae60;
+      color: white;
+    }
+
+    [data-theme="light"] .points-badge,
+    [data-theme="light"] button.toggle-button {
+      background: var(--primary-green);
+      color: white;
+    }
+
+    .filter-buttons {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .filter-btn {
+      background: var(--container-bg);
+      color: var(--text-color);
+      border: 1px solid var(--light-green);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all var(--transition-speed);
+    }
+    
+    .filter-btn:hover {
+      border-color: var(--primary-green);
+      transform: translateY(-2px);
+    }
+    
+    .filter-btn.active {
+      background: var(--primary-green);
+      color: white;
+      border-color: var(--primary-green);
+    }
+    
+    [data-theme="dark"] .filter-btn {
+      background: #2a2a2a;
+      border-color: #444;
+    }
+    
+    [data-theme="dark"] .filter-btn.active {
+      background: #1E8449;
+      border-color: #1E8449;
+    }
+    
+    @media (max-width: 600px) {
+      .filter-buttons {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="app-header">
+      <h1>🌿 Eko Hedef İzleyici</h1>
+      <div class="theme-toggle">
+        <button id="themeToggle" aria-label="Tema değiştir">🌓</button>
+      </div>
+    </div>
+    
+    <p>Yol haritamızdan belirlenmiş olan çevre dostu hedefleri tamamlayarak puan kazanın ve doğaya katkı sağlayın.</p>
+    
+    <div class="progress-container">
+      <div class="points-display">
+        <div class="points-total" id="totalPoints">0</div>
+        <div class="points-label">Puan</div>
+      </div>
+      <div class="progress-title">Genel İlerleme</div>
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+    </div>
+
+    <div class="filters-section">
+      <div class="filter-buttons">
+        <button id="filter-all" class="filter-btn active" data-filter="all">Tümü</button>
+        <button id="filter-completed" class="filter-btn" data-filter="completed">Tamamlananlar</button>
+        <button id="filter-incomplete" class="filter-btn" data-filter="incomplete">Tamamlanmayanlar</button>
+      </div>
+    </div>
+
+    <div id="categories-container">
+      <!-- Categories and goals will be generated here -->
+    </div>
+  </div>
+  <script>
+    // Add this to your existing JavaScript
+    document.addEventListener('DOMContentLoaded', function() {
+      // Theme toggle functionality
+      const themeToggle = document.getElementById('themeToggle');
+      themeToggle.addEventListener('click', () => {
+        document.documentElement.setAttribute('data-theme',
+          document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light'
+        );
+      });
+
+      // Make categories collapsible
+      document.addEventListener('click', function(e) {
+        if (e.target.closest('.category-header')) {
+          const category = e.target.closest('.category');
+          category.classList.toggle('expanded');
+        }
+      });
+
+      // Add smooth scroll behavior
+      document.documentElement.style.scrollBehavior = 'smooth';
+    });
+  </script>
+  <script src="app.js"></script>
+</body>
+</html> 
