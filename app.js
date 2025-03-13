@@ -253,6 +253,12 @@ function updateUI() {
   const progressPercentage = (totalPoints / maxPoints) * 100;
   document.getElementById('progressFill').style.width = `${progressPercentage}%`;
   
+  // Update progress percentage text
+  const progressPercentageElement = document.getElementById('progressPercentage');
+  if (progressPercentageElement) {
+    progressPercentageElement.textContent = `${Math.round(progressPercentage)}%`;
+  }
+  
   // Reapply current filter
   const activeFilter = document.querySelector('.filter-btn.active');
   if (activeFilter) {

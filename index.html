@@ -2,6 +2,7 @@
 <html lang="tr" data-theme="light">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Eko Hedef İzleyici</title>
   <style>
     :root {
@@ -348,9 +349,359 @@
         justify-content: center;
       }
     }
+
+    /* Mobile Optimizations */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+      
+      .container {
+        padding: 10px;
+      }
+      
+      h1 {
+        font-size: 1.8rem;
+      }
+      
+      .app-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+      }
+      
+      .progress-container {
+        padding: 15px;
+        margin: 1rem 0;
+      }
+      
+      .points-total {
+        font-size: 2.5rem;
+      }
+      
+      .category-header {
+        padding: 12px 10px;
+      }
+      
+      .category-title {
+        font-size: 1rem;
+      }
+      
+      .goal-item {
+        padding: 12px 10px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      
+      .goal-text {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 5px;
+      }
+      
+      .goal-actions {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      
+      .points-badge {
+        margin-right: 0;
+      }
+      
+      button {
+        padding: 8px 16px;
+        min-height: 44px;
+        min-width: 44px;
+      }
+      
+      .filter-buttons {
+        justify-content: space-between;
+        width: 100%;
+      }
+      
+      .filter-btn {
+        flex: 1;
+        text-align: center;
+        padding: 10px 5px;
+        font-size: 0.9rem;
+      }
+      
+      .category {
+        margin-bottom: 1rem;
+        transition: transform 0.2s;
+        touch-action: pan-y;
+      }
+      
+      .category.expanded {
+        box-shadow: 0 4px 12px var(--shadow-color);
+      }
+      
+      .category-header {
+        position: relative;
+        padding: 15px;
+      }
+      
+      .category-header::after {
+        content: '';
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 12px;
+        height: 12px;
+        border-right: 2px solid white;
+        border-bottom: 2px solid white;
+        transform: translateY(-50%) rotate(45deg);
+        transition: transform 0.3s;
+      }
+      
+      .category.expanded .category-header::after {
+        transform: translateY(-50%) rotate(-135deg);
+      }
+      
+      .goal-item {
+        position: relative;
+        padding: 15px;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+      }
+      
+      .goal-text {
+        font-size: 1rem;
+        line-height: 1.4;
+        margin-bottom: 10px;
+      }
+      
+      .toggle-button {
+        padding: 10px 20px;
+        font-size: 0.95rem;
+        border-radius: 50px;
+        min-height: 44px;
+        min-width: 100px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      
+      /* Improved filter buttons for touch */
+      .filter-buttons {
+        gap: 10px;
+        margin: 15px 0;
+      }
+      
+      .filter-btn {
+        min-height: 44px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+    }
+    
+    /* Small phone optimization */
+    @media (max-width: 480px) {
+      .container {
+        padding: 5px;
+      }
+      
+      h1 {
+        font-size: 1.5rem;
+        text-align: center;
+        width: 100%;
+      }
+      
+      .app-header {
+        align-items: center;
+      }
+      
+      .points-total {
+        font-size: 2.2rem;
+      }
+      
+      .category-progress {
+        font-size: 0.8rem;
+      }
+    }
+
+    /* Fixed Position Mobile Controls */
+    .mobile-controls {
+      display: none;
+    }
+    
+    .scroll-to-top {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--primary-green);
+      color: white;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      z-index: 100;
+      font-size: 24px;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      transform: translateY(20px);
+    }
+    
+    .scroll-to-top.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    @media (max-width: 768px) {
+      .theme-toggle {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 100;
+      }
+      
+      #themeToggle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        font-size: 18px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        opacity: 0.8;
+      }
+      
+      .mobile-controls {
+        display: block;
+      }
+    }
+
+    /* Touch ripple effect */
+    .touch-ripple {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      transform: scale(0);
+      animation: ripple 0.6s linear;
+      pointer-events: none;
+    }
+    
+    @keyframes ripple {
+      to {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+    
+    button.touch-active {
+      opacity: 0.8;
+      transform: scale(0.97);
+    }
+    
+    /* Progress percentage display for mobile */
+    .progress-container {
+      position: relative;
+    }
+    
+    .progress-percentage {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: var(--primary-green);
+    }
+    
+    /* Landscape mode optimizations */
+    @media (max-width: 768px) and (orientation: landscape) {
+      .app-header {
+        flex-direction: row;
+        justify-content: space-between;
+      }
+      
+      .progress-container {
+        display: flex;
+        align-items: center;
+      }
+      
+      .points-display {
+        margin-bottom: 0;
+        margin-right: 2rem;
+      }
+      
+      .progress-bar-container {
+        flex: 1;
+      }
+      
+      .filter-buttons {
+        justify-content: flex-start;
+      }
+      
+      .filter-btn {
+        min-width: 120px;
+      }
+      
+      .goal-item {
+        flex-direction: row;
+        align-items: center;
+      }
+      
+      .goal-text {
+        margin-bottom: 0;
+      }
+    }
+
+    /* Pull to refresh indicator */
+    .pull-indicator {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: var(--bg-color);
+      transform: translateY(-100%);
+      transition: transform 0.3s;
+      z-index: 90;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    
+    .pull-indicator.visible {
+      transform: translateY(0);
+    }
+    
+    .pull-indicator.refreshing::after {
+      content: '';
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--primary-green);
+      border-top-color: transparent;
+      border-radius: 50%;
+      margin-left: 10px;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+      body {
+        overscroll-behavior-y: contain;
+      }
+    }
   </style>
 </head>
 <body>
+  <div class="pull-indicator" id="pullIndicator">
+    <span>Yenilemek için çekin</span>
+  </div>
+
   <div class="container">
     <div class="app-header">
       <h1>🌿 Eko Hedef İzleyici</h1>
@@ -367,6 +718,7 @@
         <div class="points-label">Puan</div>
       </div>
       <div class="progress-title">Genel İlerleme</div>
+      <div class="progress-percentage" id="progressPercentage">0%</div>
       <div class="progress-bar">
         <div id="progressFill" class="progress-fill"></div>
       </div>
@@ -383,6 +735,9 @@
     <div id="categories-container">
       <!-- Categories and goals will be generated here -->
     </div>
+  </div>
+  <div class="mobile-controls">
+    <div class="scroll-to-top" id="scrollToTop">↑</div>
   </div>
   <script>
     // Add this to your existing JavaScript
@@ -405,6 +760,137 @@
 
       // Add smooth scroll behavior
       document.documentElement.style.scrollBehavior = 'smooth';
+      
+      // Scroll to top button functionality
+      const scrollToTopBtn = document.getElementById('scrollToTop');
+      
+      window.addEventListener('scroll', () => {
+        if (window.pageYOffset > 300) {
+          scrollToTopBtn.classList.add('visible');
+        } else {
+          scrollToTopBtn.classList.remove('visible');
+        }
+      });
+      
+      scrollToTopBtn.addEventListener('click', () => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      });
+      
+      // Mobile touch enhancements
+      if (window.matchMedia("(max-width: 768px)").matches) {
+        // Add active state for touch feedback
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(button => {
+          button.addEventListener('touchstart', () => {
+            button.classList.add('touch-active');
+          });
+          
+          button.addEventListener('touchend', () => {
+            button.classList.remove('touch-active');
+          });
+        });
+        
+        // Make goal items have touch ripple effect
+        const goalItems = document.querySelectorAll('.goal-item');
+        goalItems.forEach(item => {
+          item.addEventListener('touchstart', function(e) {
+            const touch = e.touches[0];
+            const x = touch.clientX - this.getBoundingClientRect().left;
+            const y = touch.clientY - this.getBoundingClientRect().top;
+            
+            const ripple = document.createElement('span');
+            ripple.classList.add('touch-ripple');
+            ripple.style.left = `${x}px`;
+            ripple.style.top = `${y}px`;
+            
+            this.appendChild(ripple);
+            
+            setTimeout(() => {
+              ripple.remove();
+            }, 600);
+          });
+        });
+      }
+
+      // Update progress percentage display
+      function updateProgressPercentage() {
+        const progressPercentage = document.getElementById('progressPercentage');
+        const percentage = (totalPoints / maxPoints) * 100;
+        progressPercentage.textContent = `${Math.round(percentage)}%`;
+      }
+      
+      // Add observer to watch for total points change
+      const pointsDisplay = document.getElementById('totalPoints');
+      const observer = new MutationObserver(() => {
+        updateProgressPercentage();
+      });
+      
+      observer.observe(pointsDisplay, { childList: true });
+      
+      // Initial call to set percentage
+      updateProgressPercentage();
+
+      // Pull to refresh functionality for mobile
+      if ('ontouchstart' in window) {
+        const pullIndicator = document.getElementById('pullIndicator');
+        let startY = 0;
+        let distY = 0;
+        let refreshing = false;
+        
+        document.addEventListener('touchstart', (e) => {
+          if (window.scrollY === 0 && !refreshing) {
+            startY = e.touches[0].clientY;
+          }
+        }, { passive: true });
+        
+        document.addEventListener('touchmove', (e) => {
+          if (startY > 0 && !refreshing) {
+            distY = e.touches[0].clientY - startY;
+            
+            if (distY > 0) {
+              pullIndicator.classList.add('visible');
+              
+              if (distY > 70) {
+                pullIndicator.textContent = 'Bırakın';
+              } else {
+                pullIndicator.textContent = 'Yenilemek için çekin';
+              }
+            }
+          }
+        }, { passive: true });
+        
+        document.addEventListener('touchend', () => {
+          if (distY > 70 && !refreshing) {
+            refreshApp();
+          }
+          
+          startY = 0;
+          distY = 0;
+          
+          if (!refreshing) {
+            pullIndicator.classList.remove('visible');
+          }
+        }, { passive: true });
+        
+        function refreshApp() {
+          refreshing = true;
+          pullIndicator.classList.add('refreshing');
+          pullIndicator.textContent = 'Yenileniyor';
+          
+          // Simulate refresh (or actually refresh the data)
+          setTimeout(() => {
+            // Re-render UI
+            renderCategories();
+            updateUI();
+            
+            refreshing = false;
+            pullIndicator.classList.remove('visible', 'refreshing');
+          }, 1500);
+        }
+      }
     });
   </script>
   <script src="app.js"></script>
