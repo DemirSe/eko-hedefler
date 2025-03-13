@@ -3,6 +3,21 @@
  * This file contains the JavaScript code for the Eco Goal Tracker application.
  */
 
+import { auth, supabase } from './supabase.js';
+
+// Check if user is authenticated
+async function checkAuth() {
+  const user = await auth.getCurrentUser();
+  
+  if (!user) {
+    // Redirect to login page if not authenticated
+    window.location.href = 'login.html';
+    return null;
+  }
+  
+  return user;
+}
+
 // Application data
 const categories = {
   electricity: {
@@ -65,7 +80,27 @@ const STORAGE_KEYS = {
 /**
  * Initialize the application
  */
-function initApp() {
+async function initApp() {
+  // Check if user is authenticated
+  const user = await checkAuth();
+  if (!user) return; // Stop initialization if not authenticated
+  
+  // Add a welcome message with the user's email
+  const headerElement = document.querySelector('.app-header');
+  const userInfoDiv = document.createElement('div');
+  userInfoDiv.className = 'user-info';
+  userInfoDiv.innerHTML = `
+    <span>Merhaba, ${user.email}</span>
+    <button id="logout-btn" class="btn-small">Çıkış Yap</button>
+  `;
+  headerElement.appendChild(userInfoDiv);
+  
+  // Add logout functionality
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await auth.signOut();
+    window.location.href = 'login.html';
+  });
+  
   // Cache DOM elements
   elements = {
     categoriesContainer: document.getElementById('categories-container'),
@@ -74,8 +109,8 @@ function initApp() {
     progressContainer: document.querySelector('.progress-container')
   };
 
-  // Load saved data first
-  loadFromLocalStorage();
+  // Load saved data from Supabase or localStorage
+  await loadUserProgress();
   
   // Then render categories with the loaded data
   renderCategories();
@@ -100,7 +135,47 @@ function setupEventListeners() {
 }
 
 /**
- * Save progress to local storage
+ * Save user progress to Supabase
+ */
+async function saveUserProgress() {
+  try {
+    const user = await auth.getCurrentUser();
+    if (!user) return;
+    
+    const completedGoalsArray = Array.from(completedGoals);
+    const userData = {
+      user_id: user.id,
+      completed_goals: completedGoalsArray,
+      points: totalPoints,
+      last_updated: new Date().toISOString()
+    };
+    
+    // Save to Supabase
+    const { error } = await supabase
+      .from('user_progress')
+      .upsert(
+        userData,
+        { onConflict: 'user_id' }
+      );
+    
+    if (error) throw error;
+    
+    // Also save to localStorage as backup
+    localStorage.setItem(STORAGE_KEYS.COMPLETED_GOALS, JSON.stringify(completedGoalsArray));
+    localStorage.setItem(STORAGE_KEYS.POINTS, totalPoints.toString());
+    localStorage.setItem(STORAGE_KEYS.LAST_UPDATED, userData.last_updated);
+    
+    // Update last updated display
+    displayLastUpdated();
+  } catch (error) {
+    console.error('Failed to save progress:', error);
+    // Fallback to localStorage only
+    saveToLocalStorage();
+  }
+}
+
+/**
+ * Save progress to local storage (fallback option)
  */
 function saveToLocalStorage() {
   try {
@@ -110,14 +185,59 @@ function saveToLocalStorage() {
     
     // Save last update time
     localStorage.setItem(STORAGE_KEYS.LAST_UPDATED, new Date().toISOString());
+    
+    // Update last updated display
+    displayLastUpdated();
   } catch (error) {
     console.error('Failed to save to localStorage:', error);
-    // Could add a user notification here
   }
 }
 
 /**
- * Load progress from local storage
+ * Load user progress from Supabase
+ */
+async function loadUserProgress() {
+  try {
+    const user = await auth.getCurrentUser();
+    if (!user) return false;
+    
+    // Try to load from Supabase
+    const { data, error } = await supabase
+      .from('user_progress')
+      .select('*')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (error) {
+      console.error('Error loading from Supabase:', error);
+      // Fallback to localStorage
+      return loadFromLocalStorage();
+    }
+    
+    if (data) {
+      completedGoals = new Set(data.completed_goals);
+      totalPoints = data.points;
+      
+      // Also update localStorage as backup
+      localStorage.setItem(STORAGE_KEYS.COMPLETED_GOALS, JSON.stringify(data.completed_goals));
+      localStorage.setItem(STORAGE_KEYS.POINTS, data.points.toString());
+      localStorage.setItem(STORAGE_KEYS.LAST_UPDATED, data.last_updated);
+      
+      displayLastUpdated();
+      return true;
+    } else {
+      // No data found in Supabase, try localStorage
+      return loadFromLocalStorage();
+    }
+  } catch (error) {
+    console.error('Failed to load progress from Supabase:', error);
+    // Fallback to localStorage
+    return loadFromLocalStorage();
+  }
+}
+
+/**
+ * Load progress from local storage (fallback option)
  */
 function loadFromLocalStorage() {
   try {
@@ -223,7 +343,12 @@ function createGoalItem(categoryId, goal) {
   `;
 }
 
-function toggleGoal(categoryId, goalText) {
+/**
+ * Toggle a goal completion status
+ * @param {string} categoryId - The category ID
+ * @param {string} goalText - The goal text
+ */
+async function toggleGoal(categoryId, goalText) {
   const goalId = `${categoryId}-${goalText}`;
   const goal = categories[categoryId].goals.find(g => g.text === goalText);
   
@@ -236,6 +361,9 @@ function toggleGoal(categoryId, goalText) {
   }
   
   updateUI();
+  
+  // Save progress to Supabase
+  await saveUserProgress();
 }
 
 function updateUI() {
@@ -264,18 +392,15 @@ function updateUI() {
   if (activeFilter) {
     applyFilter(activeFilter.dataset.filter);
   }
-  
-  // Save to localStorage
-  saveToLocalStorage();
 }
 
 /**
- * Toggle goal completion status
+ * Toggle goal completion from DOM elements
  * @param {HTMLElement} li - The list item element
  * @param {HTMLElement} span - The text span element
  * @param {HTMLElement} button - The button element
  */
-function toggleGoalCompletion(li, span, button) {
+async function toggleGoalCompletion(li, span, button) {
   const goalId = li.dataset.goalId;
   const goal = categories[goalId.split('-')[0]].goals.find(g => g.text === goalId.split('-')[1]);
   
@@ -288,6 +413,9 @@ function toggleGoalCompletion(li, span, button) {
   }
   
   updateUI();
+  
+  // Save progress to Supabase
+  await saveUserProgress();
 }
 
 /**
@@ -319,7 +447,31 @@ function updateProgress() {
 }
 
 // Initialize the app when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', initApp);
+document.addEventListener('DOMContentLoaded', () => {
+  // Call the async initApp function
+  initApp().catch(error => {
+    console.error('Error initializing app:', error);
+  });
+  
+  // Set up theme toggle
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  if (themeToggleBtn) {
+    // Initialize theme based on local storage or system preference
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', currentTheme);
+    themeToggleBtn.textContent = currentTheme === 'light' ? '🌙' : '☀️';
+    
+    // Toggle theme on button click
+    themeToggleBtn.addEventListener('click', () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      themeToggleBtn.textContent = newTheme === 'light' ? '🌙' : '☀️';
+    });
+  }
+});
 
 // Make sure our event listeners are set up for filtering with the new buttons
 document.addEventListener('DOMContentLoaded', function() {

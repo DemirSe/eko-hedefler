@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Kaydol - Eko Hedef İzleyici</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .auth-container {
+      max-width: 400px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: var(--container-bg);
+      border-radius: 10px;
+      box-shadow: 0 4px 10px var(--shadow-color);
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 16px;
+      background-color: var(--container-bg);
+      color: var(--text-color);
+    }
+    
+    .auth-btn {
+      width: 100%;
+      padding: 12px;
+      background-color: var(--primary-green);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    .auth-btn:hover {
+      background-color: var(--dark-green);
+    }
+    
+    .auth-links {
+      margin-top: 20px;
+      text-align: center;
+    }
+    
+    .auth-links a {
+      color: var(--primary-green);
+      text-decoration: none;
+    }
+    
+    .auth-links a:hover {
+      text-decoration: underline;
+    }
+    
+    .error-message {
+      color: #e74c3c;
+      margin-top: 15px;
+      padding: 10px;
+      background-color: rgba(231, 76, 60, 0.1);
+      border-radius: 5px;
+      display: none;
+    }
+    
+    .success-message {
+      color: #27ae60;
+      margin-top: 15px;
+      padding: 10px;
+      background-color: rgba(46, 204, 113, 0.1);
+      border-radius: 5px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="app-header">
+      <h1>Eko Hedef İzleyici</h1>
+      <div class="theme-toggle">
+        <button id="theme-toggle-btn">🌙</button>
+      </div>
+    </div>
+    
+    <div class="auth-container">
+      <h2>Kaydol</h2>
+      <div id="error-message" class="error-message"></div>
+      <div id="success-message" class="success-message"></div>
+      
+      <form id="signup-form">
+        <div class="form-group">
+          <label for="email">E-posta</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Şifre</label>
+          <input type="password" id="password" name="password" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="confirm-password">Şifre Tekrar</label>
+          <input type="password" id="confirm-password" name="confirm-password" required>
+        </div>
+        
+        <button type="submit" class="auth-btn">Kaydol</button>
+      </form>
+      
+      <div class="auth-links">
+        <p>Hesabınız var mı? <a href="login.html">Giriş Yapın</a></p>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module" src="auth.js"></script>
+</body>
+</html> 

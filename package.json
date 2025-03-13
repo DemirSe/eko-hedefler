@@ -1,0 +1,14 @@
+{
+  "name": "karbon-ayakizi",
+  "version": "1.0.0",
+  "description": "Eco-friendly goal tracking application",
+  "main": "app.js",
+  "scripts": {
+    "start": "serve .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.4",
+    "serve": "^14.2.1"
+  }
+} 
