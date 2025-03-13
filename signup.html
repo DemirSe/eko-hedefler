@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Giriş Yap - Eko Hedef İzleyici</title>
+  <title>Kaydol - Eko Hedef İzleyici</title>
   <link rel="stylesheet" href="styles.css">
   <style>
     .auth-container {
@@ -74,6 +74,15 @@
       border-radius: 5px;
       display: none;
     }
+    
+    .success-message {
+      color: #27ae60;
+      margin-top: 15px;
+      padding: 10px;
+      background-color: rgba(46, 204, 113, 0.1);
+      border-radius: 5px;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -86,10 +95,11 @@
     </div>
     
     <div class="auth-container">
-      <h2>Giriş Yap</h2>
+      <h2>Kaydol</h2>
       <div id="error-message" class="error-message"></div>
+      <div id="success-message" class="success-message"></div>
       
-      <form id="login-form">
+      <form id="signup-form">
         <div class="form-group">
           <label for="email">E-posta</label>
           <input type="email" id="email" name="email" required>
@@ -100,12 +110,16 @@
           <input type="password" id="password" name="password" required>
         </div>
         
-        <button type="submit" class="auth-btn">Giriş Yap</button>
+        <div class="form-group">
+          <label for="confirm-password">Şifre Tekrar</label>
+          <input type="password" id="confirm-password" name="confirm-password" required>
+        </div>
+        
+        <button type="submit" class="auth-btn">Kaydol</button>
       </form>
       
       <div class="auth-links">
-        <p>Hesabınız yok mu? <a href="signup.html">Kaydolun</a></p>
-        <p><a href="#" id="forgot-password">Şifremi unuttum</a></p>
+        <p>Hesabınız var mı? <a href="login.html">Giriş Yapın</a></p>
       </div>
     </div>
   </div>

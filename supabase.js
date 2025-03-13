@@ -15,20 +15,27 @@ export const auth = {
     return user
   },
   
-  // Sign in with Google
-  signInWithGoogle: async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+  // Sign up
+  signUp: async (email, password) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
       options: {
-        redirectTo: window.location.origin + '/index.html',
+        emailRedirectTo: window.location.origin + '/index.html',
+        data: {
+          email_confirmed: true
+        }
       }
     })
     return { data, error }
   },
   
-  // Get redirect result (for OAuth providers like Google)
-  getRedirectResult: async () => {
-    const { data, error } = await supabase.auth.getSession()
+  // Sign in
+  signIn: async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
     return { data, error }
   },
   
@@ -38,8 +45,11 @@ export const auth = {
     return { error }
   },
   
-  // We don't need resetPassword for username-based auth, but keeping a stub
+  // Send password reset email
   resetPassword: async (email) => {
-    return { error: { message: 'Password reset not available for username-based authentication' } }
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/reset-password.html',
+    })
+    return { data, error }
   }
 } 
