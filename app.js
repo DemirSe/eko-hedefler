@@ -752,6 +752,15 @@ function updateProgress() {
     }
   });
   
+  // Add points from completed daily tasks
+  if (dailyTasks && dailyTasks.length > 0) {
+    dailyTasks.forEach(task => {
+      if (task.completed) {
+        earnedPoints += task.points;
+      }
+    });
+  }
+  
   // Update points display in DOM
   if (elements.totalPoints) {
     elements.totalPoints.textContent = earnedPoints;
@@ -1276,8 +1285,8 @@ async function completeTask(taskId) {
     // Mark the task as completed
     task.completed = true;
     
-    // Add points
-    totalPoints += task.points;
+    // Instead of directly modifying totalPoints, we'll let updateProgress calculate the total
+    // this ensures consistency with how points are calculated across the app
     
     if (user) {
       // User is authenticated, update the database
@@ -1309,10 +1318,9 @@ async function completeTask(taskId) {
       }
       
       localStorage.setItem(`task_completions_${todayDateString}`, JSON.stringify(completedTaskIds));
-      localStorage.setItem(STORAGE_KEYS.POINTS, totalPoints.toString());
     }
     
-    // Update the UI
+    // Update the UI and points calculation
     renderDailyTasks();
     updateProgress();
     
