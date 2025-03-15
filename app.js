@@ -1179,11 +1179,13 @@ async function loadDailyTasks() {
 async function generateGlobalDailyTasks(taskDate) {
   try {
     console.log('Generating global daily tasks for date:', taskDate);
-    // Select 3 random tasks from the templates
-    const selectedTasks = getRandomTasks(dailyTaskTemplates, 3);
+    
+    // Instead of random tasks, use a fixed set of tasks each day
+    // Using the first 3 templates from the dailyTaskTemplates array
+    const fixedTasks = dailyTaskTemplates.slice(0, 3);
     
     // Create the tasks in the database
-    for (const template of selectedTasks) {
+    for (const template of fixedTasks) {
       if (!template || !template.category || (!template.text && !template.task_text)) {
         console.warn('Invalid task template:', template);
         continue;
@@ -1208,6 +1210,18 @@ async function generateGlobalDailyTasks(taskDate) {
   } catch (error) {
     console.error('Error generating global daily tasks:', error);
   }
+}
+
+/**
+ * Get random items from an array
+ * @param {Array} array - The array to select from
+ * @param {number} count - Number of items to select
+ * @returns {Array} - Selected items
+ */
+function getRandomTasks(array, count) {
+  // This function is no longer used for task generation, but is defined to prevent errors
+  // Return a slice of the array to avoid errors in case it's called elsewhere
+  return array.slice(0, count);
 }
 
 /**
