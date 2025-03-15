@@ -1092,48 +1092,87 @@ async function loadDailyTasks() {
   try {
     const user = await checkAuth();
     
+    // Get current date in GMT+3
+    const now = new Date();
+    const gmtPlus3Date = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (3 * 3600000));
+    const todayDateString = gmtPlus3Date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    // Global daily tasks are shared across all users
+    // Check if we already have today's tasks in the database
+    const { data: globalTasks, error: globalTasksError } = await supabase
+      .from('global_daily_tasks')
+      .select('*')
+      .eq('task_date', todayDateString);
+    
+    if (globalTasksError) {
+      console.error('Error loading global daily tasks:', globalTasksError);
+      throw globalTasksError;
+    }
+    
+    // If we don't have today's global tasks, generate them
+    if (!globalTasks || globalTasks.length === 0) {
+      console.log('No global tasks for today, generating new ones');
+      await generateGlobalDailyTasks(todayDateString);
+      
+      // Fetch the newly created tasks
+      const { data: newTasks, error: newTasksError } = await supabase
+        .from('global_daily_tasks')
+        .select('*')
+        .eq('task_date', todayDateString);
+      
+      if (newTasksError) {
+        console.error('Error loading newly created global tasks:', newTasksError);
+        throw newTasksError;
+      }
+      
+      dailyTasks = newTasks || [];
+    } else {
+      dailyTasks = globalTasks;
+    }
+    
+    // If user is authenticated, we need to check if they've completed any of today's tasks
     if (user) {
-      // User is authenticated, load tasks from the database
-      const { data, error } = await supabase
-        .from('daily_tasks')
+      const { data: userCompletions, error: userCompletionsError } = await supabase
+        .from('user_task_completions')
         .select('*')
         .eq('user_id', user.id)
-        .gte('expires_at', new Date().toISOString())
-        .order('date_assigned', { ascending: false });
+        .eq('task_date', todayDateString);
       
-      if (error) {
-        console.error('Error loading daily tasks:', error);
-        throw error;
+      if (userCompletionsError) {
+        console.error('Error loading user task completions:', userCompletionsError);
+        throw userCompletionsError;
       }
       
-      if (data && data.length > 0) {
-        dailyTasks = data;
-        console.log('Loaded existing daily tasks for logged-in user:', data);
+      // Mark tasks as completed if the user has completed them
+      if (userCompletions && userCompletions.length > 0) {
+        const completedTaskIds = userCompletions.map(completion => completion.task_id);
+        
+        dailyTasks = dailyTasks.map(task => {
+          if (completedTaskIds.includes(task.id)) {
+            return { ...task, completed: true };
+          }
+          return { ...task, completed: false };
+        });
       } else {
-        // No active tasks, generate new ones
-        console.log('No active tasks found for user, generating new ones');
-        dailyTasks = await generateDailyTasks(user.id);
+        // No completions found, mark all as not completed
+        dailyTasks = dailyTasks.map(task => ({ ...task, completed: false }));
       }
     } else {
-      // User is not authenticated, load from localStorage
-      const storedTasks = localStorage.getItem(STORAGE_KEYS.DAILY_TASKS);
+      // For anonymous users, check localStorage for completions
+      const storedCompletions = localStorage.getItem(`task_completions_${todayDateString}`);
       
-      if (storedTasks) {
-        dailyTasks = JSON.parse(storedTasks);
+      if (storedCompletions) {
+        const completedTaskIds = JSON.parse(storedCompletions);
         
-        // Filter out expired tasks
-        const now = new Date();
-        dailyTasks = dailyTasks.filter(task => new Date(task.expires_at) > now);
-        
-        // If all tasks expired, generate new ones
-        if (dailyTasks.length === 0) {
-          dailyTasks = generateDailyTasksForAnonymousUser();
-          localStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(dailyTasks));
-        }
+        dailyTasks = dailyTasks.map(task => {
+          if (completedTaskIds.includes(task.id)) {
+            return { ...task, completed: true };
+          }
+          return { ...task, completed: false };
+        });
       } else {
-        // No stored tasks, generate new ones
-        dailyTasks = generateDailyTasksForAnonymousUser();
-        localStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(dailyTasks));
+        // No completions found, mark all as not completed
+        dailyTasks = dailyTasks.map(task => ({ ...task, completed: false }));
       }
     }
     
@@ -1147,110 +1186,113 @@ async function loadDailyTasks() {
 }
 
 /**
- * Generate random daily tasks for a user
- * @param {string} userId - The user ID
- * @returns {Array} - The generated tasks
+ * Generate global daily tasks for all users
+ * @param {string} taskDate - The date for which to generate tasks in YYYY-MM-DD format
  */
-async function generateDailyTasks(userId) {
+async function generateGlobalDailyTasks(taskDate) {
   try {
-    console.log('Generating daily tasks for user ID:', userId);
+    console.log('Generating global daily tasks for date:', taskDate);
     // Select 3 random tasks from the templates
     const selectedTasks = getRandomTasks(dailyTaskTemplates, 3);
     
     // Create the tasks in the database
-    const tasks = [];
-    
     for (const template of selectedTasks) {
       if (!template || !template.category || (!template.text && !template.task_text)) {
         console.warn('Invalid task template:', template);
         continue;
       }
       
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 1); // Tasks expire after 1 day
-      
       const newTask = {
-        user_id: userId,
         task_text: template.text || template.task_text,
         category: template.category,
         points: template.points || 5,
-        completed: false,
-        date_assigned: new Date().toISOString(),
-        expires_at: expiryDate.toISOString()
+        task_date: taskDate
       };
       
-      console.log('Inserting new task:', newTask);
+      console.log('Inserting new global task:', newTask);
       
       // Insert the task into the database
-      const { data, error } = await supabase.from('daily_tasks').insert(newTask).select();
+      const { error } = await supabase.from('global_daily_tasks').insert(newTask);
       
       if (error) {
-        console.error('Error creating daily task:', error);
-      } else if (data && data.length > 0) {
-        console.log('Successfully created task:', data[0]);
-        tasks.push(data[0]);
+        console.error('Error creating global daily task:', error);
       }
     }
-    
-    console.log('Generated tasks:', tasks);
-    return tasks;
   } catch (error) {
-    console.error('Error generating daily tasks:', error);
-    return [];
+    console.error('Error generating global daily tasks:', error);
   }
 }
 
 /**
- * Generate random daily tasks for anonymous users
- * @returns {Array} - The generated tasks
+ * Complete a daily task
+ * @param {number|string} taskId - The task ID
  */
-function generateDailyTasksForAnonymousUser() {
+async function completeTask(taskId) {
   try {
-    // Select 3 random tasks from the templates
-    const selectedTasks = getRandomTasks(dailyTaskTemplates, 3);
+    const user = await checkAuth();
+    console.log('Completing task ID:', taskId);
     
-    // Create the tasks
-    const tasks = [];
+    // Find the task in our local array
+    const task = dailyTasks.find(t => t.id === taskId);
     
-    for (const template of selectedTasks) {
-      if (!template || !template.category || (!template.text && !template.task_text)) {
-        console.warn('Invalid task template:', template);
-        continue;
-      }
-      
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + 1); // Tasks expire after 1 day
-      
-      const newTask = {
-        id: Date.now() + Math.floor(Math.random() * 1000), // Generate a unique ID
-        user_id: null,
-        task_text: template.text || template.task_text,
-        category: template.category,
-        points: template.points || 5,
-        completed: false,
-        date_assigned: new Date().toISOString(),
-        expires_at: expiryDate.toISOString()
-      };
-      
-      tasks.push(newTask);
+    if (!task) {
+      console.error('Task not found:', taskId);
+      return;
     }
     
-    return tasks;
+    // Get current date in GMT+3
+    const now = new Date();
+    const gmtPlus3Date = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (3 * 3600000));
+    const todayDateString = gmtPlus3Date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    // Mark the task as completed
+    task.completed = true;
+    
+    // Add points
+    totalPoints += task.points;
+    
+    if (user) {
+      // User is authenticated, update the database
+      const { error } = await supabase
+        .from('user_task_completions')
+        .insert({
+          user_id: user.id,
+          task_id: taskId,
+          task_date: todayDateString,
+          completed_at: new Date().toISOString()
+        });
+      
+      if (error) {
+        console.error('Error recording task completion:', error);
+        showNotification('Görev tamamlama kaydedilirken bir hata oluştu.', 'error');
+        return;
+      }
+      
+      // Update user's points
+      await saveUserProgress();
+    } else {
+      // User is not authenticated, save to localStorage
+      const storedCompletions = localStorage.getItem(`task_completions_${todayDateString}`);
+      let completedTaskIds = storedCompletions ? JSON.parse(storedCompletions) : [];
+      
+      // Add the taskId if it's not already in the array
+      if (!completedTaskIds.includes(taskId)) {
+        completedTaskIds.push(taskId);
+      }
+      
+      localStorage.setItem(`task_completions_${todayDateString}`, JSON.stringify(completedTaskIds));
+      localStorage.setItem(STORAGE_KEYS.POINTS, totalPoints.toString());
+    }
+    
+    // Update the UI
+    renderDailyTasks();
+    updateProgress();
+    
+    showNotification(`Tebrikler! ${task.points} puan kazandınız.`);
   } catch (error) {
-    console.error('Error generating tasks for anonymous user:', error);
-    return [];
+    console.error('Error completing task:', error);
+    showNotification('Görev tamamlanırken bir hata oluştu.', 'error');
   }
-}
-
-/**
- * Select random items from an array
- * @param {Array} array - The array to select from
- * @param {number} count - Number of items to select
- * @returns {Array} - Selected items
- */
-function getRandomTasks(array, count) {
-  const shuffled = [...array].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
 }
 
 /**
@@ -1258,36 +1300,20 @@ function getRandomTasks(array, count) {
  */
 function renderDailyTasks() {
   try {
-    console.log('Rendering daily tasks:', dailyTasks);
     const tasksList = document.getElementById('daily-tasks-list');
+    
     if (!tasksList) {
-      console.error('daily-tasks-list element not found');
+      console.error('Tasks list element not found');
       return;
     }
     
-    const emptyMessage = document.getElementById('emptyTasksMessage');
-    if (!emptyMessage) {
-      console.warn('emptyTasksMessage element not found, creating it');
-      const newEmptyMessage = document.createElement('div');
-      newEmptyMessage.id = 'emptyTasksMessage';
-      newEmptyMessage.className = 'empty-tasks-message';
-      newEmptyMessage.textContent = 'Bugün için günlük görev bulunmuyor. Yeni görevler almak için \'Yenile\' düğmesine tıklayın.';
-      tasksList.appendChild(newEmptyMessage);
-    }
-    
-    // Clear the current tasks
+    // Clear previous content
     tasksList.innerHTML = '';
     
+    // If there are no tasks, show a message
     if (!dailyTasks || dailyTasks.length === 0) {
-      // Show the empty message
-      emptyMessage.style.display = 'block';
-      tasksList.appendChild(emptyMessage);
+      tasksList.innerHTML = '<div class="empty-tasks-message">Bugün için görev bulunamadı.</div>';
       return;
-    }
-    
-    // Hide the empty message
-    if (emptyMessage) {
-      emptyMessage.style.display = 'none';
     }
     
     // Add each task to the list
@@ -1297,11 +1323,19 @@ function renderDailyTasks() {
       taskItem.dataset.taskId = task.id;
       
       const categoryIcon = getCategoryIcon(task.category);
-      const expiryTime = getExpiryTimeString(task.expires_at);
+      
+      // Get current date in GMT+3
+      const now = new Date();
+      const gmtPlus3Date = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (3 * 3600000));
+      const todayEnd = new Date(gmtPlus3Date);
+      todayEnd.setHours(23, 59, 59, 999);
+      
+      // Format expiry time as "Today at 23:59"
+      const expiryTime = "Bugün 23:59'a kadar";
       
       taskItem.innerHTML = `
         <div class="daily-task-info">
-          <div class="daily-task-text">${task.text || task.task_text}</div>
+          <div class="daily-task-text">${task.task_text}</div>
           <div class="daily-task-meta">
             <div class="daily-task-category">
               <i>${categoryIcon}</i> ${getCategoryName(task.category)}
@@ -1328,13 +1362,8 @@ function renderDailyTasks() {
       tasksList.appendChild(taskItem);
     });
     
-    // Add "Add Custom Task" button
-    const addCustomBtn = document.createElement('button');
-    addCustomBtn.className = 'add-custom-task-btn';
-    addCustomBtn.textContent = '+ Özel Günlük Görev Ekle';
-    addCustomBtn.addEventListener('click', showAddTaskModal);
-    
-    tasksList.appendChild(addCustomBtn);
+    // Remove "Add Custom Task" button since users shouldn't be able to add tasks
+    // The refresh button will also be disabled in the refreshDailyTasks function
   } catch (error) {
     console.error('Error rendering daily tasks:', error);
     showNotification('Günlük görevler görüntülenirken bir hata oluştu.', 'error');
@@ -1380,220 +1409,10 @@ function getExpiryTimeString(expiryDateString) {
 }
 
 /**
- * Complete a daily task
- * @param {number|string} taskId - The task ID
- */
-async function completeTask(taskId) {
-  try {
-    const user = await checkAuth();
-    console.log('Completing task ID:', taskId);
-    console.log('Current daily tasks:', dailyTasks);
-    
-    // Convert taskId to the appropriate type for comparison
-    const taskIdToCompare = typeof taskId === 'string' && !isNaN(parseInt(taskId)) ? parseInt(taskId) : taskId;
-    
-    const taskIndex = dailyTasks.findIndex(task => {
-      const currentId = typeof task.id === 'string' && !isNaN(parseInt(task.id)) ? parseInt(task.id) : task.id;
-      return currentId === taskIdToCompare;
-    });
-    
-    if (taskIndex === -1) {
-      console.error('Task not found:', taskId);
-      return;
-    }
-    
-    console.log('Found task at index:', taskIndex, dailyTasks[taskIndex]);
-    
-    // Update the task in our local array
-    dailyTasks[taskIndex].completed = true;
-    dailyTasks[taskIndex].date_completed = new Date().toISOString();
-    
-    // Add points
-    totalPoints += dailyTasks[taskIndex].points;
-    
-    if (user) {
-      // User is authenticated, update the database
-      console.log('Updating task in database:', dailyTasks[taskIndex].id);
-      
-      const { error } = await supabase
-        .from('daily_tasks')
-        .update({
-          completed: true,
-          date_completed: new Date().toISOString()
-        })
-        .eq('id', dailyTasks[taskIndex].id);
-      
-      if (error) {
-        console.error('Error updating task:', error);
-        showNotification('Görev güncellenirken bir hata oluştu.', 'error');
-        return;
-      }
-      
-      console.log('Successfully updated task in database');
-      
-      // Update user's points
-      await saveUserProgress();
-    } else {
-      // User is not authenticated, save to localStorage
-      localStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(dailyTasks));
-      localStorage.setItem(STORAGE_KEYS.POINTS, totalPoints.toString());
-    }
-    
-    // Update the UI
-    renderDailyTasks();
-    updateProgress();
-    
-    showNotification(`Tebrikler! ${dailyTasks[taskIndex].points} puan kazandınız.`);
-  } catch (error) {
-    console.error('Error completing task:', error);
-    showNotification('Görev tamamlanırken bir hata oluştu.', 'error');
-  }
-}
-
-/**
- * Show the add task modal
- */
-function showAddTaskModal() {
-  try {
-    const modal = document.getElementById('add-task-modal');
-    if (!modal) {
-      console.error('add-task-modal element not found');
-      showNotification('Modal bulunamadı, lütfen sayfayı yenileyin.', 'error');
-      return;
-    }
-    
-    modal.style.display = 'block';
-    
-    // Close when clicking the X
-    const closeBtn = modal.querySelector('.close-modal');
-    if (closeBtn) {
-      closeBtn.onclick = () => {
-        modal.style.display = 'none';
-      };
-    }
-    
-    // Close when clicking outside the modal
-    window.onclick = (event) => {
-      if (event.target === modal) {
-        modal.style.display = 'none';
-      }
-    };
-    
-    // Handle form submission
-    const form = document.getElementById('add-task-form');
-    if (form) {
-      form.onsubmit = (e) => {
-        e.preventDefault();
-        addCustomTask();
-      };
-    } else {
-      console.error('add-task-form element not found');
-      showNotification('Form bulunamadı, lütfen sayfayı yenileyin.', 'error');
-    }
-  } catch (error) {
-    console.error('Error showing add task modal:', error);
-    showNotification('Görev ekleme penceresi açılırken bir hata oluştu.', 'error');
-  }
-}
-
-/**
- * Add a custom daily task
- */
-async function addCustomTask() {
-  try {
-    const taskText = document.getElementById('task-text').value.trim();
-    const category = document.getElementById('task-category').value;
-    const points = parseInt(document.getElementById('task-points').value);
-    
-    if (!taskText || !category || isNaN(points)) {
-      showNotification('Lütfen tüm alanları doldurun.', 'error');
-      return;
-    }
-    
-    const user = await checkAuth();
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + 1);
-    
-    const newTask = {
-      task_text: taskText,
-      category: category,
-      points: points,
-      completed: false,
-      date_assigned: new Date().toISOString(),
-      expires_at: expiryDate.toISOString()
-    };
-    
-    if (user) {
-      // User is authenticated, add to database
-      newTask.user_id = user.id;
-      
-      const { data, error } = await supabase.from('daily_tasks').insert(newTask).select();
-      
-      if (error) {
-        console.error('Error adding custom task:', error);
-        showNotification('Görev eklenirken bir hata oluştu.', 'error');
-        return;
-      }
-      
-      if (data) {
-        dailyTasks.push(data[0]);
-      }
-    } else {
-      // User is not authenticated, add to localStorage
-      newTask.id = Date.now() + Math.floor(Math.random() * 1000);
-      newTask.user_id = null;
-      
-      dailyTasks.push(newTask);
-      localStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(dailyTasks));
-    }
-    
-    // Close the modal
-    document.getElementById('add-task-modal').style.display = 'none';
-    
-    // Reset the form
-    document.getElementById('add-task-form').reset();
-    
-    // Update the UI
-    renderDailyTasks();
-    
-    showNotification('Yeni günlük görev eklendi.');
-  } catch (error) {
-    console.error('Error adding custom task:', error);
-    showNotification('Görev eklenirken bir hata oluştu.', 'error');
-  }
-}
-
-/**
- * Refresh daily tasks
+ * Refresh daily tasks - now disabled since tasks are global
  */
 async function refreshDailyTasks() {
-  try {
-    const user = await checkAuth();
-    
-    if (user) {
-      // Clear existing tasks in the database
-      await supabase
-        .from('daily_tasks')
-        .delete()
-        .eq('user_id', user.id)
-        .gte('expires_at', new Date().toISOString());
-      
-      // Generate new tasks
-      dailyTasks = await generateDailyTasks(user.id);
-    } else {
-      // User is not authenticated, generate new tasks for localStorage
-      dailyTasks = generateDailyTasksForAnonymousUser();
-      localStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(dailyTasks));
-    }
-    
-    // Update the UI
-    renderDailyTasks();
-    
-    showNotification('Günlük görevler yenilendi.');
-  } catch (error) {
-    console.error('Error refreshing daily tasks:', error);
-    showNotification('Görevler yenilenirken bir hata oluştu.', 'error');
-  }
+  showNotification('Günlük görevler 00:00 GMT+3\'te otomatik olarak yenilenir ve değiştirilemez.', 'info');
 }
 
 // Export functions for use in other modules

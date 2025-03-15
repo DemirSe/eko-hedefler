@@ -835,6 +835,15 @@
       transform: scale(1.05);
     }
 
+    .task-update-info {
+      font-size: 0.85rem;
+      color: white;
+      background-color: rgba(255, 255, 255, 0.2);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-style: italic;
+    }
+
     #daily-tasks-list {
       padding: 15px;
     }
@@ -1051,6 +1060,19 @@
       border-color: #444;
       color: #eee;
     }
+
+    [data-theme="dark"] .refresh-btn {
+      background: #2e2e2e;
+      color: var(--primary-green);
+    }
+    
+    [data-theme="dark"] .task-update-info {
+      background-color: rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="dark"] .daily-task-item {
+      border-bottom-color: rgba(255, 255, 255, 0.05);
+    }
   </style>
 </head>
 <body>
@@ -1092,12 +1114,12 @@
     <div class="daily-tasks-container">
       <div class="section-header">
         <h2>Günlük Görevler</h2>
-        <button id="refresh-tasks" class="refresh-btn">Yenile</button>
+        <div class="task-update-info">Görevler her gün 00:00 GMT+3'te yenilenir</div>
       </div>
       <div id="daily-tasks-list">
         <!-- Daily tasks will be displayed here -->
         <div class="empty-tasks-message" id="emptyTasksMessage">
-          Bugün için günlük görev bulunmuyor. Yeni görevler almak için 'Yenile' düğmesine tıklayın.
+          Bugün için günlük görev bulunmuyor. Görevler her gün 00:00 GMT+3'te otomatik olarak yenilenir.
         </div>
       </div>
     </div>
