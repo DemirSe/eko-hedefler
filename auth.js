@@ -1,5 +1,12 @@
 import { auth } from './supabase.js';
 
+// Define storage keys - must match the ones in app.js
+const STORAGE_KEYS = {
+  COMPLETED_GOALS: 'ecoGoalsCompleted',
+  POINTS: 'ecoGoalsPoints',
+  LAST_UPDATED: 'ecoGoalsLastUpdated'
+};
+
 // Theme toggle functionality
 document.addEventListener('DOMContentLoaded', () => {
   const themeToggleBtn = document.getElementById('theme-toggle-btn');
@@ -40,6 +47,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Store user info in local storage
         localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Check if there's anonymous user data that needs to be handled
+        handleAnonymousData();
         
         // Redirect to the main app
         window.location.href = 'index.html';
@@ -137,4 +147,42 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-}); 
+});
+
+/**
+ * Handle anonymous user data when logging in
+ * This gives users a choice to keep or discard their anonymous data
+ */
+function handleAnonymousData() {
+  // Check if there's any anonymous user data stored
+  const storedGoals = localStorage.getItem(STORAGE_KEYS.COMPLETED_GOALS);
+  const storedPoints = localStorage.getItem(STORAGE_KEYS.POINTS);
+  
+  const hasStoredGoals = storedGoals !== null;
+  const hasStoredPoints = storedPoints !== null;
+  
+  if (hasStoredGoals || hasStoredPoints) {
+    console.log('Anonymous user data detected');
+    
+    // Store data in session storage temporarily (will be cleared when browser closes)
+    if (hasStoredGoals) {
+      sessionStorage.setItem('temp_' + STORAGE_KEYS.COMPLETED_GOALS, storedGoals);
+    }
+    if (hasStoredPoints) {
+      sessionStorage.setItem('temp_' + STORAGE_KEYS.POINTS, storedPoints);
+    }
+    
+    const lastUpdated = localStorage.getItem(STORAGE_KEYS.LAST_UPDATED);
+    if (lastUpdated) {
+      sessionStorage.setItem('temp_' + STORAGE_KEYS.LAST_UPDATED, lastUpdated);
+    }
+    
+    // Store a flag to show the merge prompt when redirected to index.html
+    sessionStorage.setItem('show_merge_prompt', 'true');
+    
+    // Remove the anonymous user data to prevent automatic merging
+    localStorage.removeItem(STORAGE_KEYS.COMPLETED_GOALS);
+    localStorage.removeItem(STORAGE_KEYS.POINTS);
+    localStorage.removeItem(STORAGE_KEYS.LAST_UPDATED);
+  }
+} 

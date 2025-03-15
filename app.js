@@ -124,6 +124,11 @@ async function initApp() {
         await auth.signOut();
         window.location.reload(); // Reload the page after logout
       });
+      
+      // Check if there's a merge prompt to show after login
+      if (sessionStorage.getItem('show_merge_prompt') === 'true') {
+        showMergePrompt();
+      }
     } else {
       // User is not logged in - show login/register buttons
       userInfoDiv.innerHTML = `
@@ -706,4 +711,173 @@ function applyFilter(filterValue) {
       goal.style.display = 'none';
     }
   });
+}
+
+/**
+ * Shows a prompt asking the user if they want to keep their anonymous data
+ */
+function showMergePrompt() {
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  `;
+  
+  // Create modal content
+  const modal = document.createElement('div');
+  modal.className = 'modal-content';
+  modal.style.cssText = `
+    background-color: var(--container-bg);
+    border-radius: 10px;
+    padding: 20px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 4px 10px var(--shadow-color);
+  `;
+  
+  // Count anonymous goals
+  const tempGoals = JSON.parse(sessionStorage.getItem('temp_' + STORAGE_KEYS.COMPLETED_GOALS) || '[]');
+  const tempPoints = parseInt(sessionStorage.getItem('temp_' + STORAGE_KEYS.POINTS) || '0', 10);
+  
+  modal.innerHTML = `
+    <h3>Eski İlerlemeniz Bulundu</h3>
+    <p>Önceki oturumunuzda tamamladığınız ${tempGoals.length} hedef ve kazandığınız ${tempPoints} puan tespit edildi.</p>
+    <p>Bu hedefleri hesabınıza aktarmak istiyor musunuz?</p>
+    <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+      <button id="discard-data" class="btn-small" style="background-color: #e74c3c; color: white;">Hayır, Yeni Başla</button>
+      <button id="merge-data" class="btn-small" style="background-color: var(--primary-green); color: white;">Evet, Aktar</button>
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  // Handle button clicks
+  document.getElementById('discard-data').addEventListener('click', () => {
+    // Discard temporary data and close modal
+    discardAnonymousData();
+    overlay.remove();
+  });
+  
+  document.getElementById('merge-data').addEventListener('click', async () => {
+    // Merge anonymous data with account data
+    await mergeAnonymousData();
+    overlay.remove();
+  });
+}
+
+/**
+ * Discards anonymous user data
+ */
+function discardAnonymousData() {
+  // Clear all temporary data
+  sessionStorage.removeItem('temp_' + STORAGE_KEYS.COMPLETED_GOALS);
+  sessionStorage.removeItem('temp_' + STORAGE_KEYS.POINTS);
+  sessionStorage.removeItem('temp_' + STORAGE_KEYS.LAST_UPDATED);
+  sessionStorage.removeItem('show_merge_prompt');
+  
+  // Load user data from Supabase
+  loadUserProgress();
+}
+
+/**
+ * Merges anonymous user data with account data
+ */
+async function mergeAnonymousData() {
+  try {
+    // Get temporary data
+    const tempGoalsStr = sessionStorage.getItem('temp_' + STORAGE_KEYS.COMPLETED_GOALS);
+    
+    if (tempGoalsStr) {
+      const tempGoals = JSON.parse(tempGoalsStr);
+      
+      // Add temporary goals to the current set
+      tempGoals.forEach(goalId => completedGoals.add(goalId));
+      
+      // Update UI
+      renderCategories();
+      updateProgress();
+      
+      // Save the merged data to Supabase
+      await saveUserProgress();
+      
+      // Show success message
+      showNotification('Hedefleriniz başarıyla aktarıldı!', 'success');
+    }
+    
+    // Clear temporary data
+    sessionStorage.removeItem('temp_' + STORAGE_KEYS.COMPLETED_GOALS);
+    sessionStorage.removeItem('temp_' + STORAGE_KEYS.POINTS);
+    sessionStorage.removeItem('temp_' + STORAGE_KEYS.LAST_UPDATED);
+    sessionStorage.removeItem('show_merge_prompt');
+  } catch (error) {
+    console.error('Error merging anonymous data:', error);
+    showNotification('Hedefler aktarılırken bir hata oluştu.', 'error');
+  }
+}
+
+/**
+ * Shows a notification message
+ * @param {string} message - The message to display
+ * @param {string} type - The type of notification ('success' or 'error')
+ */
+function showNotification(message, type = 'success') {
+  // Add styles for animations if they don't exist yet
+  if (!document.getElementById('notification-styles')) {
+    const style = document.createElement('style');
+    style.id = 'notification-styles';
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translate(-50%, 20px); }
+        to { opacity: 1; transform: translate(-50%, 0); }
+      }
+      
+      @keyframes fadeOut {
+        from { opacity: 1; transform: translate(-50%, 0); }
+        to { opacity: 0; transform: translate(-50%, 20px); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  
+  notification.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    border-radius: 5px;
+    color: white;
+    font-weight: bold;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    animation: fadeIn 0.3s, fadeOut 0.3s 3.7s;
+  `;
+  
+  if (type === 'success') {
+    notification.style.backgroundColor = 'var(--primary-green)';
+  } else {
+    notification.style.backgroundColor = '#e74c3c';
+  }
+  
+  document.body.appendChild(notification);
+  
+  // Remove notification after 4 seconds
+  setTimeout(() => {
+    notification.remove();
+  }, 4000);
 } 
