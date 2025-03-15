@@ -1139,8 +1139,20 @@
   </div>
 
   <script>
+    // Track initialization to prevent duplicate initialization
+    let appInitialized = false;
+    
     // Add this to your existing JavaScript
     document.addEventListener('DOMContentLoaded', function() {
+      // Prevent multiple initializations
+      if (appInitialized) {
+        console.warn('App already initialized, skipping duplicate initialization');
+        return;
+      }
+      
+      // Mark as initialized
+      appInitialized = true;
+      
       // Initialize the application
       import('./app.js').then(module => {
         if (typeof module.initApp === 'function') {
@@ -1318,6 +1330,5 @@
       }
     });
   </script>
-  <script type="module" src="app.js"></script>
 </body>
 </html> 

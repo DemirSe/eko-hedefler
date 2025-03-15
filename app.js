@@ -150,6 +150,13 @@ async function initApp() {
     
     // Add user info or login/register buttons to the header
     const headerElement = document.querySelector('.app-header');
+    
+    // First, remove any existing user-info elements to prevent duplicates
+    const existingUserInfo = headerElement.querySelector('.user-info');
+    if (existingUserInfo) {
+      existingUserInfo.remove();
+    }
+    
     const userInfoDiv = document.createElement('div');
     userInfoDiv.className = 'user-info';
     
@@ -807,77 +814,6 @@ function updateProgress() {
     }
   }
 }
-
-// Initialize the app when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', () => {
-  try {
-    // Check if required DOM elements exist
-    const requiredElements = [
-      'categories-container',
-      'progressFill',
-      'totalPoints',
-      'daily-tasks-list'
-    ];
-    
-    const missingElements = requiredElements.filter(id => !document.getElementById(id));
-    if (missingElements.length > 0) {
-      console.error('Missing required DOM elements:', missingElements);
-      alert('Uygulama başlatılırken hata: Gerekli elementler eksik. Sayfayı yenileyin veya destek alın.');
-      return;
-    }
-    
-    // Clean up any stale data first
-    cleanupStaleData();
-    
-    // Call the async initApp function
-    initApp().catch(error => {
-      console.error('Error initializing app:', error);
-      showNotification('Uygulama başlatılırken bir hata oluştu: ' + error.message, 'error');
-    });
-    
-    // Set up theme toggle
-    const themeToggleBtn = document.getElementById('theme-toggle-btn');
-    if (themeToggleBtn) {
-      // Initialize theme based on local storage or system preference
-      const currentTheme = localStorage.getItem('theme') || 'light';
-      document.documentElement.setAttribute('data-theme', currentTheme);
-      themeToggleBtn.textContent = currentTheme === 'light' ? '🌙' : '☀️';
-      
-      // Toggle theme on button click
-      themeToggleBtn.addEventListener('click', () => {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-        
-        document.documentElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
-        themeToggleBtn.textContent = newTheme === 'light' ? '🌙' : '☀️';
-      });
-    }
-  } catch (error) {
-    console.error('Initialization error:', error);
-    alert('Uygulama başlatılırken beklenmeyen bir hata oluştu. Lütfen sayfayı yenileyin.');
-  }
-});
-
-// Make sure our event listeners are set up for filtering with the new buttons
-document.addEventListener('DOMContentLoaded', function() {
-  // Add event listeners for filter buttons
-  const filterButtons = document.querySelectorAll('.filter-btn');
-  
-  filterButtons.forEach(button => {
-    button.addEventListener('click', function() {
-      // Remove active class from all buttons
-      filterButtons.forEach(btn => btn.classList.remove('active'));
-      
-      // Add active class to clicked button
-      this.classList.add('active');
-      
-      // Apply the filter
-      const filterValue = this.dataset.filter;
-      applyFilter(filterValue);
-    });
-  });
-});
 
 // Updated apply filter function
 function applyFilter(filterValue) {
