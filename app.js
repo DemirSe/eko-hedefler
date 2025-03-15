@@ -7,9 +7,37 @@ import { auth, supabase } from './supabase.js';
 
 // Check if user is authenticated
 async function checkAuth() {
-  const user = await auth.getCurrentUser();
-  // Return the user (or null) without redirecting
-  return user;
+  try {
+    const user = await auth.getCurrentUser();
+    
+    if (user) {
+      // Validate that the session is active by making a simple auth-required request
+      const { error } = await supabase.from('user_progress').select('count').limit(1);
+      
+      if (error && (error.code === 'PGRST301' || error.status === 401)) {
+        console.warn('Session token appears to be invalid, attempting to refresh...');
+        
+        // Try to refresh the session
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.error('Failed to refresh session:', refreshError);
+          // Session is invalid and couldn't be refreshed, sign out
+          await auth.signOut();
+          return null;
+        }
+        
+        // Session refreshed, get updated user
+        return await auth.getCurrentUser();
+      }
+    }
+    
+    // Return the user (or null) without redirecting
+    return user;
+  } catch (error) {
+    console.error('Error checking authentication:', error);
+    return null;
+  }
 }
 
 // Application data
@@ -75,65 +103,74 @@ const STORAGE_KEYS = {
  * Initialize the application
  */
 async function initApp() {
-  // Check if user is authenticated, but don't force redirect
-  const user = await checkAuth();
-  
-  // Add user info or login/register buttons to the header
-  const headerElement = document.querySelector('.app-header');
-  const userInfoDiv = document.createElement('div');
-  userInfoDiv.className = 'user-info';
-  
-  if (user) {
-    // User is logged in - show welcome and logout button
-    userInfoDiv.innerHTML = `
-      <span>Merhaba, ${user.email}</span>
-      <button id="logout-btn" class="btn-small">Çıkış Yap</button>
-    `;
-    // Add logout functionality
-    headerElement.appendChild(userInfoDiv);
-    document.getElementById('logout-btn').addEventListener('click', async () => {
-      await auth.signOut();
-      window.location.reload(); // Reload the page after logout
-    });
-  } else {
-    // User is not logged in - show login/register buttons
-    userInfoDiv.innerHTML = `
-      <button id="login-btn" class="btn-small">Giriş Yap</button>
-      <button id="register-btn" class="btn-small">Kaydol</button>
-    `;
-    headerElement.appendChild(userInfoDiv);
+  try {
+    // Check if user is authenticated, but don't force redirect
+    const user = await checkAuth();
     
-    // Add login and register button functionality
-    document.getElementById('login-btn').addEventListener('click', () => {
-      window.location.href = 'login.html';
-    });
-    document.getElementById('register-btn').addEventListener('click', () => {
-      window.location.href = 'signup.html';
-    });
-  }
-  
-  // Cache DOM elements
-  elements = {
-    categoriesContainer: document.getElementById('categories-container'),
-    progressFill: document.getElementById('progressFill'),
-    totalPoints: document.getElementById('totalPoints'),
-    progressContainer: document.querySelector('.progress-container')
-  };
+    // Add user info or login/register buttons to the header
+    const headerElement = document.querySelector('.app-header');
+    const userInfoDiv = document.createElement('div');
+    userInfoDiv.className = 'user-info';
+    
+    if (user) {
+      // User is logged in - show welcome and logout button
+      userInfoDiv.innerHTML = `
+        <span>Merhaba, ${user.email}</span>
+        <button id="logout-btn" class="btn-small">Çıkış Yap</button>
+      `;
+      // Add logout functionality
+      headerElement.appendChild(userInfoDiv);
+      document.getElementById('logout-btn').addEventListener('click', async () => {
+        await auth.signOut();
+        window.location.reload(); // Reload the page after logout
+      });
+    } else {
+      // User is not logged in - show login/register buttons
+      userInfoDiv.innerHTML = `
+        <button id="login-btn" class="btn-small">Giriş Yap</button>
+        <button id="register-btn" class="btn-small">Kaydol</button>
+      `;
+      headerElement.appendChild(userInfoDiv);
+      
+      // Add login and register button functionality
+      document.getElementById('login-btn').addEventListener('click', () => {
+        window.location.href = 'login.html';
+      });
+      document.getElementById('register-btn').addEventListener('click', () => {
+        window.location.href = 'signup.html';
+      });
+    }
+    
+    // Cache DOM elements
+    elements = {
+      categoriesContainer: document.getElementById('categories-container'),
+      progressFill: document.getElementById('progressFill'),
+      totalPoints: document.getElementById('totalPoints'),
+      progressContainer: document.querySelector('.progress-container')
+    };
 
-  // Load saved data from Supabase or localStorage
-  let dataLoaded = false;
-  if (user) {
-    // If logged in, try to load from Supabase
-    dataLoaded = await loadUserProgress();
-  } else {
-    // If not logged in, only try to load from localStorage
-    dataLoaded = loadFromLocalStorage();
+    // Load saved data from Supabase or localStorage
+    let dataLoaded = false;
+    if (user) {
+      // If logged in, try to load from Supabase
+      dataLoaded = await loadUserProgress();
+    } else {
+      // If not logged in, only try to load from localStorage
+      dataLoaded = loadFromLocalStorage();
+    }
+    
+    // Then render categories with the loaded data
+    renderCategories();
+    setupEventListeners();
+    updateProgress();
+  } catch (error) {
+    console.error('Error initializing app:', error);
+    // Fallback to basic functionality with localStorage
+    loadFromLocalStorage();
+    renderCategories();
+    setupEventListeners();
+    updateProgress();
   }
-  
-  // Then render categories with the loaded data
-  renderCategories();
-  setupEventListeners();
-  updateProgress();
 }
 
 /**
@@ -227,6 +264,30 @@ async function saveUserProgress() {
       
       if (error) {
         console.error('Error saving to Supabase:', error);
+        
+        // Check if it's an authentication error (401)
+        if (error.code === 'PGRST301' || error.status === 401) {
+          console.warn('Authentication token may have expired. Attempting to refresh session...');
+          
+          // Attempt to refresh the session
+          const { error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (refreshError) {
+            console.error('Failed to refresh session:', refreshError);
+            // Clear any stored user data since the session is invalid
+            await auth.signOut();
+            // Notify the user their session has expired
+            alert('Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
+            // Redirect to login page
+            window.location.href = 'login.html';
+            return;
+          } else {
+            // Session refreshed successfully, try saving data again
+            console.log('Session refreshed, retrying data save...');
+            return saveUserProgress(); // Recursively try again with new token
+          }
+        }
+        
         throw error;
       }
       
@@ -279,7 +340,31 @@ async function loadUserProgress() {
     
     if (error) {
       console.error('Error loading from Supabase:', error);
-      // Fallback to localStorage
+      
+      // Check if it's an authentication error (401)
+      if (error.code === 'PGRST301' || error.status === 401) {
+        console.warn('Authentication token may have expired. Attempting to refresh session...');
+        
+        // Attempt to refresh the session
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.error('Failed to refresh session:', refreshError);
+          // Clear any stored user data since the session is invalid
+          await auth.signOut();
+          // Notify the user their session has expired
+          alert('Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
+          // Redirect to login page
+          window.location.href = 'login.html';
+          return false;
+        } else {
+          // Session refreshed successfully, try loading data again
+          console.log('Session refreshed, retrying data load...');
+          return loadUserProgress(); // Recursively try again with new token
+        }
+      }
+      
+      // For other errors, fallback to localStorage
       return loadFromLocalStorage();
     }
     

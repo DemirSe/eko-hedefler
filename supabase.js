@@ -51,5 +51,11 @@ export const auth = {
       redirectTo: window.location.origin + '/reset-password.html',
     })
     return { data, error }
+  },
+  
+  // Refresh session
+  refreshSession: async () => {
+    const { data, error } = await supabase.auth.refreshSession()
+    return { data, error }
   }
 } 
