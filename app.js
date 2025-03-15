@@ -308,9 +308,17 @@ function setupEventListeners() {
     // Add event delegation for daily task completion buttons
     document.addEventListener('click', function(e) {
       if (e.target.classList.contains('complete-task-btn') && !e.target.hasAttribute('disabled')) {
-        const taskItem = e.target.closest('.daily-task-item');
-        if (taskItem && taskItem.dataset.taskId) {
-          completeTask(taskItem.dataset.taskId);
+        const taskId = e.target.dataset.taskId; // Get taskId directly from the button
+        if (taskId) {
+          completeTask(taskId);
+        } else {
+          // Fallback to getting taskId from parent element
+          const taskItem = e.target.closest('.daily-task-item');
+          if (taskItem && taskItem.dataset.taskId) {
+            completeTask(taskItem.dataset.taskId);
+          } else {
+            console.error('Could not find task ID');
+          }
         }
       }
     });
@@ -1231,13 +1239,32 @@ function getRandomTasks(array, count) {
 async function completeTask(taskId) {
   try {
     const user = await checkAuth();
-    console.log('Completing task ID:', taskId);
+    console.log('Completing task ID:', taskId, 'Type:', typeof taskId);
     
-    // Find the task in our local array
-    const task = dailyTasks.find(t => t.id === taskId);
+    // Convert taskId to a number if it's a string to ensure consistent comparison
+    const numericTaskId = typeof taskId === 'string' ? parseInt(taskId, 10) : taskId;
+    
+    // Debug: log all available task IDs to see what's actually in the dailyTasks array
+    console.log('Available task IDs:', dailyTasks.map(t => {
+      return {
+        id: t.id,
+        type: typeof t.id,
+        task_text: t.task_text
+      };
+    }));
+    
+    // Find the task in our local array - try both string and number versions
+    let task = dailyTasks.find(t => t.id === taskId || t.id === numericTaskId);
+    
+    // If still not found, try a more flexible approach by converting both to strings
+    if (!task) {
+      const taskIdStr = String(taskId);
+      task = dailyTasks.find(t => String(t.id) === taskIdStr);
+    }
     
     if (!task) {
-      console.error('Task not found:', taskId);
+      console.error('Task not found:', taskId, 'Available IDs:', dailyTasks.map(t => t.id));
+      showNotification('Görev bulunamadı.', 'error');
       return;
     }
     
@@ -1258,7 +1285,7 @@ async function completeTask(taskId) {
         .from('user_task_completions')
         .insert({
           user_id: user.id,
-          task_id: taskId,
+          task_id: task.id, // Use the task.id from the found task object
           task_date: todayDateString,
           completed_at: new Date().toISOString()
         });
@@ -1277,8 +1304,8 @@ async function completeTask(taskId) {
       let completedTaskIds = storedCompletions ? JSON.parse(storedCompletions) : [];
       
       // Add the taskId if it's not already in the array
-      if (!completedTaskIds.includes(taskId)) {
-        completedTaskIds.push(taskId);
+      if (!completedTaskIds.includes(task.id)) {
+        completedTaskIds.push(task.id);
       }
       
       localStorage.setItem(`task_completions_${todayDateString}`, JSON.stringify(completedTaskIds));
@@ -1317,11 +1344,16 @@ function renderDailyTasks() {
       return;
     }
     
+    console.log('Rendering tasks:', dailyTasks);
+    
     // Add each task to the list
     dailyTasks.forEach(task => {
+      // Ensure task has an id - use array index as fallback if none exists
+      const taskId = task.id !== undefined ? task.id : dailyTasks.indexOf(task);
+      
       const taskItem = document.createElement('div');
       taskItem.className = `daily-task-item ${task.completed ? 'completed-task' : ''}`;
-      taskItem.dataset.taskId = task.id;
+      taskItem.dataset.taskId = String(taskId); // Always store as string in dataset
       
       const categoryIcon = getCategoryIcon(task.category);
       
@@ -1346,7 +1378,7 @@ function renderDailyTasks() {
         </div>
         <div class="daily-task-actions">
           <span class="task-points-badge">${task.points} Puan</span>
-          <button class="complete-task-btn" ${task.completed ? 'disabled' : ''}>
+          <button class="complete-task-btn" ${task.completed ? 'disabled' : ''} data-task-id="${taskId}">
             ${task.completed ? 'Tamamlandı' : 'Tamamla'}
           </button>
         </div>
