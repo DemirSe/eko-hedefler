@@ -129,6 +129,22 @@ const STORAGE_KEYS = {
  */
 async function initApp() {
   try {
+    // Cache DOM elements for future use
+    elements = {
+      categoriesContainer: document.getElementById('categories-container'),
+      progressFill: document.getElementById('progressFill'),
+      totalPoints: document.getElementById('totalPoints'),
+      progressContainer: document.querySelector('.progress-container'),
+      progressPercentage: document.getElementById('progressPercentage')
+    };
+    
+    // Make sure we can access these elements
+    if (!elements.categoriesContainer || !elements.progressFill || !elements.totalPoints) {
+      console.error('Required DOM elements not found');
+      showNotification('Uygulamayı başlatmak için gerekli elementler bulunamadı.', 'error');
+      return;
+    }
+    
     // Check if user is authenticated, but don't force redirect
     const user = await checkAuth();
     
@@ -566,7 +582,17 @@ function displayLastUpdated() {
     const statusEl = document.createElement('div');
     statusEl.className = 'last-updated';
     statusEl.innerHTML = `<small>Son güncelleme: ${timeStr}</small>`;
-    elements.progressContainer.appendChild(statusEl);
+    
+    // Make sure elements.progressContainer is available
+    if (elements.progressContainer) {
+      elements.progressContainer.appendChild(statusEl);
+    } else {
+      // Fallback to direct DOM query if elements cache isn't available
+      const progressContainer = document.querySelector('.progress-container');
+      if (progressContainer) {
+        progressContainer.appendChild(statusEl);
+      }
+    }
   }
 }
 
@@ -574,6 +600,18 @@ function displayLastUpdated() {
  * Render all categories and their goals
  */
 function renderCategories() {
+  // First make sure we have the elements object properly initialized
+  if (!elements.categoriesContainer) {
+    // Try to initialize it now
+    elements.categoriesContainer = document.getElementById('categories-container');
+    
+    // If still not available, log error and return
+    if (!elements.categoriesContainer) {
+      console.error('Categories container not found');
+      return;
+    }
+  }
+
   elements.categoriesContainer.innerHTML = '';
 
   Object.entries(categories).forEach(([categoryId, category]) => {
@@ -737,6 +775,8 @@ function updateProgress() {
     const totalPointsElement = document.getElementById('totalPoints');
     if (totalPointsElement) {
       totalPointsElement.textContent = earnedPoints;
+    } else {
+      console.warn('totalPoints element not found');
     }
   }
   
@@ -752,43 +792,70 @@ function updateProgress() {
     const progressFill = document.getElementById('progressFill');
     if (progressFill) {
       progressFill.style.width = percentage + '%';
+    } else {
+      console.warn('progressFill element not found');
     }
   }
   
   // Update progress percentage text if it exists
-  const progressPercentage = document.getElementById('progressPercentage');
-  if (progressPercentage) {
-    progressPercentage.textContent = `${Math.round(percentage)}%`;
+  if (elements.progressPercentage) {
+    elements.progressPercentage.textContent = `${Math.round(percentage)}%`;
+  } else {
+    const progressPercentage = document.getElementById('progressPercentage');
+    if (progressPercentage) {
+      progressPercentage.textContent = `${Math.round(percentage)}%`;
+    }
   }
 }
 
 // Initialize the app when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
-  // Clean up any stale data first
-  cleanupStaleData();
-  
-  // Call the async initApp function
-  initApp().catch(error => {
-    console.error('Error initializing app:', error);
-  });
-  
-  // Set up theme toggle
-  const themeToggleBtn = document.getElementById('theme-toggle-btn');
-  if (themeToggleBtn) {
-    // Initialize theme based on local storage or system preference
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', currentTheme);
-    themeToggleBtn.textContent = currentTheme === 'light' ? '🌙' : '☀️';
+  try {
+    // Check if required DOM elements exist
+    const requiredElements = [
+      'categories-container',
+      'progressFill',
+      'totalPoints',
+      'daily-tasks-list'
+    ];
     
-    // Toggle theme on button click
-    themeToggleBtn.addEventListener('click', () => {
-      const currentTheme = document.documentElement.getAttribute('data-theme');
-      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-      
-      document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
-      themeToggleBtn.textContent = newTheme === 'light' ? '🌙' : '☀️';
+    const missingElements = requiredElements.filter(id => !document.getElementById(id));
+    if (missingElements.length > 0) {
+      console.error('Missing required DOM elements:', missingElements);
+      alert('Uygulama başlatılırken hata: Gerekli elementler eksik. Sayfayı yenileyin veya destek alın.');
+      return;
+    }
+    
+    // Clean up any stale data first
+    cleanupStaleData();
+    
+    // Call the async initApp function
+    initApp().catch(error => {
+      console.error('Error initializing app:', error);
+      showNotification('Uygulama başlatılırken bir hata oluştu: ' + error.message, 'error');
     });
+    
+    // Set up theme toggle
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    if (themeToggleBtn) {
+      // Initialize theme based on local storage or system preference
+      const currentTheme = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', currentTheme);
+      themeToggleBtn.textContent = currentTheme === 'light' ? '🌙' : '☀️';
+      
+      // Toggle theme on button click
+      themeToggleBtn.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+        themeToggleBtn.textContent = newTheme === 'light' ? '🌙' : '☀️';
+      });
+    }
+  } catch (error) {
+    console.error('Initialization error:', error);
+    alert('Uygulama başlatılırken beklenmeyen bir hata oluştu. Lütfen sayfayı yenileyin.');
   }
 });
 
@@ -954,54 +1021,76 @@ async function mergeAnonymousData() {
  * @param {string} type - The type of notification ('success' or 'error')
  */
 function showNotification(message, type = 'success') {
-  // Add styles for animations if they don't exist yet
-  if (!document.getElementById('notification-styles')) {
-    const style = document.createElement('style');
-    style.id = 'notification-styles';
-    style.textContent = `
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translate(-50%, 20px); }
-        to { opacity: 1; transform: translate(-50%, 0); }
-      }
-      
-      @keyframes fadeOut {
-        from { opacity: 1; transform: translate(-50%, 0); }
-        to { opacity: 0; transform: translate(-50%, 20px); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
+  try {
+    if (!message) {
+      console.warn('Empty notification message');
+      message = 'Notification';
+    }
+    
+    // Add styles for animations if they don't exist yet
+    if (!document.getElementById('notification-styles')) {
+      const style = document.createElement('style');
+      style.id = 'notification-styles';
+      style.textContent = `
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translate(-50%, 20px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        
+        @keyframes fadeOut {
+          from { opacity: 1; transform: translate(-50%, 0); }
+          to { opacity: 0; transform: translate(-50%, 20px); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
 
-  const notification = document.createElement('div');
-  notification.className = `notification ${type}`;
-  notification.textContent = message;
-  
-  notification.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 10px 20px;
-    border-radius: 5px;
-    color: white;
-    font-weight: bold;
-    z-index: 1000;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    animation: fadeIn 0.3s, fadeOut 0.3s 3.7s;
-  `;
-  
-  if (type === 'success') {
-    notification.style.backgroundColor = 'var(--primary-green)';
-  } else {
-    notification.style.backgroundColor = '#e74c3c';
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    
+    notification.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      border-radius: 5px;
+      color: white;
+      font-weight: bold;
+      z-index: 1000;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+      animation: fadeIn 0.3s, fadeOut 0.3s 3.7s;
+    `;
+    
+    if (type === 'success') {
+      notification.style.backgroundColor = 'var(--primary-green, #2ecc71)';
+    } else {
+      notification.style.backgroundColor = '#e74c3c';
+    }
+    
+    document.body.appendChild(notification);
+    
+    // Remove notification after 4 seconds
+    setTimeout(() => {
+      if (notification && notification.parentNode) {
+        notification.parentNode.removeChild(notification);
+      }
+    }, 4000);
+  } catch (error) {
+    // Last resort if notification system fails
+    console.error('Failed to show notification:', error);
+    console.error('Notification message was:', message);
+    
+    // Try to show an alert if everything else fails
+    try {
+      if (type === 'error') {
+        alert('Error: ' + message);
+      }
+    } catch (e) {
+      // Nothing more we can do
+    }
   }
-  
-  document.body.appendChild(notification);
-  
-  // Remove notification after 4 seconds
-  setTimeout(() => {
-    notification.remove();
-  }, 4000);
 }
 
 /**
@@ -1168,31 +1257,41 @@ async function generateDailyTasks(userId) {
  * @returns {Array} - The generated tasks
  */
 function generateDailyTasksForAnonymousUser() {
-  // Select 3 random tasks from the templates
-  const selectedTasks = getRandomTasks(dailyTaskTemplates, 3);
-  
-  // Create the tasks
-  const tasks = [];
-  
-  for (const template of selectedTasks) {
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + 1); // Tasks expire after 1 day
+  try {
+    // Select 3 random tasks from the templates
+    const selectedTasks = getRandomTasks(dailyTaskTemplates, 3);
     
-    const newTask = {
-      id: Date.now() + Math.floor(Math.random() * 1000), // Generate a unique ID
-      user_id: null,
-      task_text: template.text,
-      category: template.category,
-      points: template.points,
-      completed: false,
-      date_assigned: new Date().toISOString(),
-      expires_at: expiryDate.toISOString()
-    };
+    // Create the tasks
+    const tasks = [];
     
-    tasks.push(newTask);
+    for (const template of selectedTasks) {
+      if (!template || !template.category || (!template.text && !template.task_text)) {
+        console.warn('Invalid task template:', template);
+        continue;
+      }
+      
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 1); // Tasks expire after 1 day
+      
+      const newTask = {
+        id: Date.now() + Math.floor(Math.random() * 1000), // Generate a unique ID
+        user_id: null,
+        task_text: template.text || template.task_text,
+        category: template.category,
+        points: template.points || 5,
+        completed: false,
+        date_assigned: new Date().toISOString(),
+        expires_at: expiryDate.toISOString()
+      };
+      
+      tasks.push(newTask);
+    }
+    
+    return tasks;
+  } catch (error) {
+    console.error('Error generating tasks for anonymous user:', error);
+    return [];
   }
-  
-  return tasks;
 }
 
 /**
@@ -1210,67 +1309,87 @@ function getRandomTasks(array, count) {
  * Render the daily tasks in the UI
  */
 function renderDailyTasks() {
-  const tasksList = document.getElementById('daily-tasks-list');
-  const emptyMessage = document.getElementById('emptyTasksMessage');
-  
-  // Clear the current tasks
-  tasksList.innerHTML = '';
-  
-  if (dailyTasks.length === 0) {
-    // Show the empty message
-    emptyMessage.style.display = 'block';
-    tasksList.appendChild(emptyMessage);
-    return;
-  }
-  
-  // Hide the empty message
-  emptyMessage.style.display = 'none';
-  
-  // Add each task to the list
-  dailyTasks.forEach(task => {
-    const taskItem = document.createElement('div');
-    taskItem.className = `daily-task-item ${task.completed ? 'completed-task' : ''}`;
-    taskItem.dataset.taskId = task.id;
-    
-    const categoryIcon = getCategoryIcon(task.category);
-    const expiryTime = getExpiryTimeString(task.expires_at);
-    
-    taskItem.innerHTML = `
-      <div class="daily-task-info">
-        <div class="daily-task-text">${task.text}</div>
-        <div class="daily-task-meta">
-          <div class="daily-task-category">
-            <i>${categoryIcon}</i> ${getCategoryName(task.category)}
-          </div>
-          <div class="daily-task-expiry">${expiryTime}</div>
-        </div>
-      </div>
-      <div class="daily-task-actions">
-        <span class="task-points-badge">${task.points} Puan</span>
-        <button class="complete-task-btn" ${task.completed ? 'disabled' : ''}>
-          ${task.completed ? 'Tamamlandı' : 'Tamamla'}
-        </button>
-      </div>
-    `;
-    
-    // Add event listener for completing the task
-    const completeBtn = taskItem.querySelector('.complete-task-btn');
-    if (!task.completed) {
-      completeBtn.addEventListener('click', () => {
-        completeTask(task.id);
-      });
+  try {
+    const tasksList = document.getElementById('daily-tasks-list');
+    if (!tasksList) {
+      console.error('daily-tasks-list element not found');
+      return;
     }
     
-    tasksList.appendChild(taskItem);
-  });
-  
-  // Add "Add Custom Task" button
-  const addCustomBtn = document.createElement('button');
-  addCustomBtn.className = 'add-custom-task-btn';
-  addCustomBtn.textContent = '+ Özel Günlük Görev Ekle';
-  addCustomBtn.addEventListener('click', showAddTaskModal);
-  
-  tasksList.appendChild(addCustomBtn);
+    const emptyMessage = document.getElementById('emptyTasksMessage');
+    if (!emptyMessage) {
+      console.warn('emptyTasksMessage element not found, creating it');
+      const newEmptyMessage = document.createElement('div');
+      newEmptyMessage.id = 'emptyTasksMessage';
+      newEmptyMessage.className = 'empty-tasks-message';
+      newEmptyMessage.textContent = 'Bugün için günlük görev bulunmuyor. Yeni görevler almak için \'Yenile\' düğmesine tıklayın.';
+      tasksList.appendChild(newEmptyMessage);
+    }
+    
+    // Clear the current tasks
+    tasksList.innerHTML = '';
+    
+    if (!dailyTasks || dailyTasks.length === 0) {
+      // Show the empty message
+      emptyMessage.style.display = 'block';
+      tasksList.appendChild(emptyMessage);
+      return;
+    }
+    
+    // Hide the empty message
+    if (emptyMessage) {
+      emptyMessage.style.display = 'none';
+    }
+    
+    // Add each task to the list
+    dailyTasks.forEach(task => {
+      const taskItem = document.createElement('div');
+      taskItem.className = `daily-task-item ${task.completed ? 'completed-task' : ''}`;
+      taskItem.dataset.taskId = task.id;
+      
+      const categoryIcon = getCategoryIcon(task.category);
+      const expiryTime = getExpiryTimeString(task.expires_at);
+      
+      taskItem.innerHTML = `
+        <div class="daily-task-info">
+          <div class="daily-task-text">${task.text || task.task_text}</div>
+          <div class="daily-task-meta">
+            <div class="daily-task-category">
+              <i>${categoryIcon}</i> ${getCategoryName(task.category)}
+            </div>
+            <div class="daily-task-expiry">${expiryTime}</div>
+          </div>
+        </div>
+        <div class="daily-task-actions">
+          <span class="task-points-badge">${task.points} Puan</span>
+          <button class="complete-task-btn" ${task.completed ? 'disabled' : ''}>
+            ${task.completed ? 'Tamamlandı' : 'Tamamla'}
+          </button>
+        </div>
+      `;
+      
+      // Add event listener for completing the task
+      const completeBtn = taskItem.querySelector('.complete-task-btn');
+      if (!task.completed && completeBtn) {
+        completeBtn.addEventListener('click', () => {
+          completeTask(task.id);
+        });
+      }
+      
+      tasksList.appendChild(taskItem);
+    });
+    
+    // Add "Add Custom Task" button
+    const addCustomBtn = document.createElement('button');
+    addCustomBtn.className = 'add-custom-task-btn';
+    addCustomBtn.textContent = '+ Özel Günlük Görev Ekle';
+    addCustomBtn.addEventListener('click', showAddTaskModal);
+    
+    tasksList.appendChild(addCustomBtn);
+  } catch (error) {
+    console.error('Error rendering daily tasks:', error);
+    showNotification('Günlük görevler görüntülenirken bir hata oluştu.', 'error');
+  }
 }
 
 /**
@@ -1371,28 +1490,46 @@ async function completeTask(taskId) {
  * Show the add task modal
  */
 function showAddTaskModal() {
-  const modal = document.getElementById('add-task-modal');
-  modal.style.display = 'block';
-  
-  // Close when clicking the X
-  const closeBtn = modal.querySelector('.close-modal');
-  closeBtn.onclick = () => {
-    modal.style.display = 'none';
-  };
-  
-  // Close when clicking outside the modal
-  window.onclick = (event) => {
-    if (event.target === modal) {
-      modal.style.display = 'none';
+  try {
+    const modal = document.getElementById('add-task-modal');
+    if (!modal) {
+      console.error('add-task-modal element not found');
+      showNotification('Modal bulunamadı, lütfen sayfayı yenileyin.', 'error');
+      return;
     }
-  };
-  
-  // Handle form submission
-  const form = document.getElementById('add-task-form');
-  form.onsubmit = (e) => {
-    e.preventDefault();
-    addCustomTask();
-  };
+    
+    modal.style.display = 'block';
+    
+    // Close when clicking the X
+    const closeBtn = modal.querySelector('.close-modal');
+    if (closeBtn) {
+      closeBtn.onclick = () => {
+        modal.style.display = 'none';
+      };
+    }
+    
+    // Close when clicking outside the modal
+    window.onclick = (event) => {
+      if (event.target === modal) {
+        modal.style.display = 'none';
+      }
+    };
+    
+    // Handle form submission
+    const form = document.getElementById('add-task-form');
+    if (form) {
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        addCustomTask();
+      };
+    } else {
+      console.error('add-task-form element not found');
+      showNotification('Form bulunamadı, lütfen sayfayı yenileyin.', 'error');
+    }
+  } catch (error) {
+    console.error('Error showing add task modal:', error);
+    showNotification('Görev ekleme penceresi açılırken bir hata oluştu.', 'error');
+  }
 }
 
 /**
@@ -1493,4 +1630,17 @@ async function refreshDailyTasks() {
     console.error('Error refreshing daily tasks:', error);
     showNotification('Görevler yenilenirken bir hata oluştu.', 'error');
   }
+}
+
+// Export functions for use in other modules
+export {
+  initApp,
+  checkAuth,
+  loadUserProgress,
+  saveUserProgress,
+  loadDailyTasks,
+  renderDailyTasks,
+  refreshDailyTasks,
+  handleLogout,
+  showNotification
 } 
