@@ -10,6 +10,13 @@ async function checkAuth() {
   try {
     const user = await auth.getCurrentUser();
     
+    // If no user is found but we have user data in localStorage,
+    // this likely means the session expired or cookies were cleared
+    if (!user && localStorage.getItem('user') !== null) {
+      console.log('User session expired but localStorage data exists - clearing user data');
+      localStorage.removeItem('user');
+    }
+    
     if (user) {
       // Validate that the session is active by making a simple auth-required request
       const { error } = await supabase.from('user_progress').select('count').limit(1);
@@ -23,7 +30,7 @@ async function checkAuth() {
         if (refreshError) {
           console.error('Failed to refresh session:', refreshError);
           // Session is invalid and couldn't be refreshed, sign out
-          await auth.signOut();
+          await handleLogout(); // Use our comprehensive logout function
           return null;
         }
         
@@ -121,8 +128,8 @@ async function initApp() {
       // Add logout functionality
       headerElement.appendChild(userInfoDiv);
       document.getElementById('logout-btn').addEventListener('click', async () => {
-        await auth.signOut();
-        window.location.reload(); // Reload the page after logout
+        // Perform a proper logout that clears all data
+        await handleLogout();
       });
       
       // Check if there's a merge prompt to show after login
@@ -405,6 +412,27 @@ async function loadUserProgress() {
  */
 function loadFromLocalStorage() {
   try {
+    // First check if we're in a non-authenticated state but have user data in localStorage
+    // This could happen if the user manually cleared cookies or the session expired
+    const wasLoggedIn = localStorage.getItem('user') !== null;
+    const isLoggedIn = false; // If we're calling this function, we're not logged in
+    
+    // If the user was logged in (has user data) but is no longer logged in (session expired),
+    // we should clear the localStorage data to prevent seeing another user's goals
+    if (wasLoggedIn && !isLoggedIn) {
+      console.log('User was previously logged in but session expired - clearing localStorage data');
+      localStorage.removeItem(STORAGE_KEYS.COMPLETED_GOALS);
+      localStorage.removeItem(STORAGE_KEYS.POINTS);
+      localStorage.removeItem(STORAGE_KEYS.LAST_UPDATED);
+      localStorage.removeItem('user');
+      
+      // Initialize empty state
+      completedGoals = new Set();
+      totalPoints = 0;
+      return false;
+    }
+    
+    // Normal flow for anonymous users
     const savedGoals = JSON.parse(localStorage.getItem(STORAGE_KEYS.COMPLETED_GOALS) || '[]');
     
     completedGoals = new Set(savedGoals);
@@ -415,9 +443,12 @@ function loadFromLocalStorage() {
     
     // Update UI after loading the data
     updateUI();
+    
+    return true;
   } catch (error) {
     console.error('Failed to load from localStorage:', error);
     // Could add a user notification here
+    return false;
   }
 }
 
@@ -645,6 +676,9 @@ function updateProgress() {
 
 // Initialize the app when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
+  // Clean up any stale data first
+  cleanupStaleData();
+  
   // Call the async initApp function
   initApp().catch(error => {
     console.error('Error initializing app:', error);
@@ -880,4 +914,67 @@ function showNotification(message, type = 'success') {
   setTimeout(() => {
     notification.remove();
   }, 4000);
+}
+
+/**
+ * Handle user logout by clearing all user data
+ */
+async function handleLogout() {
+  try {
+    // Show confirmation dialog
+    const confirmLogout = confirm('Çıkış yapmak istediğinize emin misiniz? Giriş yapmadığınız durumda ilerlemeniz kaydedilmeyecektir.');
+    
+    if (!confirmLogout) {
+      return; // User cancelled the logout
+    }
+    
+    // Sign out from Supabase
+    await auth.signOut();
+    
+    // Clear user data from localStorage
+    localStorage.removeItem(STORAGE_KEYS.COMPLETED_GOALS);
+    localStorage.removeItem(STORAGE_KEYS.POINTS);
+    localStorage.removeItem(STORAGE_KEYS.LAST_UPDATED);
+    localStorage.removeItem('user');
+    
+    // Clear any session storage data as well
+    sessionStorage.removeItem('temp_' + STORAGE_KEYS.COMPLETED_GOALS);
+    sessionStorage.removeItem('temp_' + STORAGE_KEYS.POINTS);
+    sessionStorage.removeItem('temp_' + STORAGE_KEYS.LAST_UPDATED);
+    sessionStorage.removeItem('show_merge_prompt');
+    
+    // Show a notification that the user has logged out
+    showNotification('Başarıyla çıkış yaptınız!', 'success');
+    
+    // Reload the page to reset the UI
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000); // Short delay to allow the notification to be seen
+  } catch (error) {
+    console.error('Error during logout:', error);
+    showNotification('Çıkış yapılırken bir hata oluştu.', 'error');
+  }
+}
+
+/**
+ * Clean up any stale data that might exist from previous sessions
+ */
+function cleanupStaleData() {
+  // Check if we have user data in localStorage but no valid Supabase session
+  const hasUserData = localStorage.getItem('user') !== null;
+  
+  // We'll check for a valid session by looking for the Supabase auth cookie
+  // This is a simple check that doesn't make an API call
+  const hasSupabaseCookie = document.cookie.includes('sb-') || 
+                            document.cookie.includes('supabase-auth');
+  
+  if (hasUserData && !hasSupabaseCookie) {
+    console.log('Found stale user data without valid session cookie - clearing localStorage data');
+    
+    // Clear all user-related localStorage data
+    localStorage.removeItem(STORAGE_KEYS.COMPLETED_GOALS);
+    localStorage.removeItem(STORAGE_KEYS.POINTS);
+    localStorage.removeItem(STORAGE_KEYS.LAST_UPDATED);
+    localStorage.removeItem('user');
+  }
 } 
