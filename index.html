@@ -1277,8 +1277,13 @@
       // Update progress percentage display
       function updateProgressPercentage() {
         const progressPercentage = document.getElementById('progressPercentage');
-        const percentage = (totalPoints / maxPoints) * 100;
-        progressPercentage.textContent = `${Math.round(percentage)}%`;
+        const totalPointsValue = parseInt(document.getElementById('totalPoints').textContent) || 0;
+        
+        // Use a fixed value for max points until the real value is available from app.js
+        // This is a conservative estimate that will be updated when the app initializes
+        const estimatedMaxPoints = 100;
+        const percentage = (totalPointsValue / estimatedMaxPoints) * 100;
+        progressPercentage.textContent = `${Math.min(Math.round(percentage), 100)}%`;
       }
       
       // Add observer to watch for total points change

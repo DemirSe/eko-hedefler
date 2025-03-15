@@ -129,6 +129,8 @@ const STORAGE_KEYS = {
  */
 async function initApp() {
   try {
+    console.log('Initializing app...');
+    
     // Cache DOM elements for future use
     elements = {
       categoriesContainer: document.getElementById('categories-container'),
@@ -139,10 +141,11 @@ async function initApp() {
     };
     
     // Make sure we can access these elements
-    if (!elements.categoriesContainer || !elements.progressFill || !elements.totalPoints) {
-      console.error('Required DOM elements not found');
-      showNotification('Uygulamayı başlatmak için gerekli elementler bulunamadı.', 'error');
-      return;
+    if (!elements.categoriesContainer) {
+      console.warn('Categories container not found, will attempt to continue initialization');
+    }
+    if (!elements.progressFill || !elements.totalPoints) {
+      console.warn('Progress elements not found, will attempt to continue initialization');
     }
     
     // Check if user is authenticated, but don't force redirect
@@ -151,71 +154,106 @@ async function initApp() {
     // Add user info or login/register buttons to the header
     const headerElement = document.querySelector('.app-header');
     
-    // First, remove any existing user-info elements to prevent duplicates
-    const existingUserInfo = headerElement.querySelector('.user-info');
-    if (existingUserInfo) {
-      existingUserInfo.remove();
-    }
-    
-    const userInfoDiv = document.createElement('div');
-    userInfoDiv.className = 'user-info';
-    
-    if (user) {
-      // User is logged in - show welcome and logout button
-      userInfoDiv.innerHTML = `
-        <span>Merhaba, ${user.email}</span>
-        <button id="logout-btn" class="btn-small">Çıkış Yap</button>
-      `;
-      // Add logout functionality
-      headerElement.appendChild(userInfoDiv);
-      document.getElementById('logout-btn').addEventListener('click', async () => {
-        // Perform a proper logout that clears all data
-        await handleLogout();
-      });
-      
-      // Check if there's a merge prompt to show after login
-      if (sessionStorage.getItem('show_merge_prompt') === 'true') {
-        showMergePrompt();
+    if (headerElement) {
+      // First, remove any existing user-info elements to prevent duplicates
+      const existingUserInfo = headerElement.querySelector('.user-info');
+      if (existingUserInfo) {
+        existingUserInfo.remove();
       }
-    } else {
-      // User is not logged in - show login/register buttons
-      userInfoDiv.innerHTML = `
-        <button id="login-btn" class="btn-small">Giriş Yap</button>
-        <button id="register-btn" class="btn-small">Kaydol</button>
-      `;
-      headerElement.appendChild(userInfoDiv);
       
-      // Add login and register button functionality
-      document.getElementById('login-btn').addEventListener('click', () => {
-        window.location.href = 'login.html';
-      });
+      const userInfoDiv = document.createElement('div');
+      userInfoDiv.className = 'user-info';
       
-      document.getElementById('register-btn').addEventListener('click', () => {
-        window.location.href = 'signup.html';
-      });
+      if (user) {
+        // User is logged in - show welcome and logout button
+        userInfoDiv.innerHTML = `
+          <span>Merhaba, ${user.email}</span>
+          <button id="logout-btn" class="btn-small">Çıkış Yap</button>
+        `;
+        // Add logout functionality
+        headerElement.appendChild(userInfoDiv);
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+          logoutBtn.addEventListener('click', async () => {
+            // Perform a proper logout that clears all data
+            await handleLogout();
+          });
+        }
+        
+        // Check if there's a merge prompt to show after login
+        if (sessionStorage.getItem('show_merge_prompt') === 'true') {
+          showMergePrompt();
+        }
+      } else {
+        // User is not logged in - show login/register buttons
+        userInfoDiv.innerHTML = `
+          <button id="login-btn" class="btn-small">Giriş Yap</button>
+          <button id="register-btn" class="btn-small">Kaydol</button>
+        `;
+        headerElement.appendChild(userInfoDiv);
+        
+        // Add login and register button functionality
+        const loginBtn = document.getElementById('login-btn');
+        if (loginBtn) {
+          loginBtn.addEventListener('click', () => {
+            window.location.href = 'login.html';
+          });
+        }
+        
+        const registerBtn = document.getElementById('register-btn');
+        if (registerBtn) {
+          registerBtn.addEventListener('click', () => {
+            window.location.href = 'signup.html';
+          });
+        }
+      }
     }
     
     // Set up event listeners for the application
     setupEventListeners();
     
     // Load user progress data (goals, points, etc.)
-    await loadUserProgress();
+    try {
+      await loadUserProgress();
+    } catch (error) {
+      console.error('Error loading user progress:', error);
+      showNotification('Kullanıcı verileri yüklenirken bir hata oluştu.', 'error');
+    }
     
     // Load daily tasks
-    await loadDailyTasks();
+    try {
+      await loadDailyTasks();
+    } catch (error) {
+      console.error('Error loading daily tasks:', error);
+      showNotification('Günlük görevler yüklenirken bir hata oluştu.', 'error');
+    }
     
     // Render the UI
-    renderCategories();
-    updateProgress();
+    try {
+      renderCategories();
+      updateProgress();
+    } catch (error) {
+      console.error('Error rendering UI:', error);
+      showNotification('Arayüz yüklenirken bir hata oluştu.', 'error');
+    }
     
     // Update last sync time display
-    displayLastUpdated();
+    try {
+      displayLastUpdated();
+    } catch (error) {
+      console.error('Error displaying last updated time:', error);
+    }
     
     // Clean up any stale local data
-    cleanupStaleData();
+    try {
+      cleanupStaleData();
+    } catch (error) {
+      console.error('Error cleaning up stale data:', error);
+    }
     
     // Add a class to the body to indicate the app is initialized
     document.body.classList.add('app-initialized');
+    console.log('App initialization complete');
     
   } catch (error) {
     console.error('Error initializing app:', error);
@@ -227,128 +265,47 @@ async function initApp() {
  * Setup event listeners for the application
  */
 function setupEventListeners() {
-  // Set up filter buttons
-  const filterBtns = document.querySelectorAll('.filter-btn');
-  filterBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      // Remove active class from all buttons
-      filterBtns.forEach(b => b.classList.remove('active'));
-      // Add active class to clicked button
-      e.target.classList.add('active');
-      // Apply the filter
-      applyFilter(e.target.dataset.filter);
-    });
-  });
-  
-  // Daily tasks refresh button
-  const refreshTasksBtn = document.getElementById('refresh-tasks');
-  refreshTasksBtn.addEventListener('click', refreshDailyTasks);
-  
-  // Theme toggle
-  const themeToggle = document.getElementById('themeToggle');
-  if (themeToggle) {
-    themeToggle.addEventListener('click', () => {
-      const currentTheme = document.documentElement.getAttribute('data-theme');
-      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-      document.documentElement.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
-    });
-  }
-  
-  // Scroll to top button
-  const scrollToTopBtn = document.getElementById('scrollToTop');
-  if (scrollToTopBtn) {
-    scrollToTopBtn.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+  try {
+    // Set up filter buttons
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    if (filterBtns.length > 0) {
+      filterBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          // Remove active class from all buttons
+          filterBtns.forEach(b => b.classList.remove('active'));
+          // Add active class to clicked button
+          e.target.classList.add('active');
+          // Apply the filter
+          applyFilter(e.target.dataset.filter);
+        });
+      });
+    }
     
-    // Show/hide scroll to top button based on scroll position
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 300) {
-        scrollToTopBtn.classList.add('visible');
-      } else {
-        scrollToTopBtn.classList.remove('visible');
-      }
+    // Theme toggle
+    const themeToggle = document.getElementById('themeToggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', () => {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute('data-theme');
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        html.setAttribute('data-theme', newTheme);
+        localStorage.setItem('theme', newTheme);
+      });
+    }
+    
+    // Add touch feedback to goal items
+    const goalItems = document.querySelectorAll('.goal-item');
+    goalItems.forEach(item => {
+      item.addEventListener('mouseenter', () => {
+        item.classList.add('hover');
+      });
+      
+      item.addEventListener('mouseleave', () => {
+        item.classList.remove('hover');
+      });
     });
-  }
-  
-  // Pull to refresh on mobile
-  const pullIndicator = document.getElementById('pullIndicator');
-  let startY = 0;
-  let pullDistance = 0;
-  const REFRESH_THRESHOLD = 100;
-  let isPulling = false;
-  let isRefreshing = false;
-  
-  // Add touch events only on mobile devices
-  if (window.matchMedia('(max-width: 768px)').matches) {
-    document.addEventListener('touchstart', (e) => {
-      // Only enable pull to refresh if at the top of the page
-      if (window.scrollY === 0) {
-        startY = e.touches[0].clientY;
-        isPulling = true;
-      }
-    }, { passive: true });
-    
-    document.addEventListener('touchmove', (e) => {
-      if (!isPulling || isRefreshing) return;
-      
-      const currentY = e.touches[0].clientY;
-      pullDistance = currentY - startY;
-      
-      if (pullDistance > 0 && window.scrollY === 0) {
-        // Pull down detected at the top of the page
-        pullIndicator.style.transform = `translateY(${Math.min(pullDistance * 0.5, REFRESH_THRESHOLD)}px)`;
-        pullIndicator.classList.add('visible');
-        
-        if (pullDistance > REFRESH_THRESHOLD) {
-          pullIndicator.textContent = 'Yenilemek için bırakın';
-        } else {
-          pullIndicator.textContent = 'Yenilemek için çekin';
-        }
-        
-        // Prevent default scrolling when pulling down
-        e.preventDefault();
-      }
-    }, { passive: false });
-    
-    document.addEventListener('touchend', async () => {
-      if (!isPulling || isRefreshing) return;
-      
-      if (pullDistance > REFRESH_THRESHOLD) {
-        // Pull distance exceeded threshold, trigger refresh
-        isRefreshing = true;
-        pullIndicator.textContent = 'Yenileniyor...';
-        pullIndicator.classList.add('refreshing');
-        
-        // Reload app data
-        try {
-          await loadUserProgress();
-          await loadDailyTasks();
-          renderCategories();
-          updateProgress();
-          showNotification('Veriler güncellendi');
-        } catch (error) {
-          console.error('Pull to refresh error:', error);
-          showNotification('Yenileme sırasında bir hata oluştu', 'error');
-        }
-        
-        // Reset after a delay
-        setTimeout(() => {
-          isRefreshing = false;
-          pullIndicator.classList.remove('refreshing');
-          pullIndicator.classList.remove('visible');
-          pullIndicator.style.transform = 'translateY(-100%)';
-        }, 1000);
-      } else {
-        // Pull distance did not exceed threshold, reset
-        pullIndicator.classList.remove('visible');
-        pullIndicator.style.transform = 'translateY(-100%)';
-      }
-      
-      isPulling = false;
-      pullDistance = 0;
-    }, { passive: true });
+  } catch (error) {
+    console.error('Error setting up event listeners:', error);
   }
 }
 
@@ -1097,83 +1054,98 @@ async function loadDailyTasks() {
     const gmtPlus3Date = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (3 * 3600000));
     const todayDateString = gmtPlus3Date.toISOString().split('T')[0]; // YYYY-MM-DD format
     
-    // Global daily tasks are shared across all users
-    // Check if we already have today's tasks in the database
-    const { data: globalTasks, error: globalTasksError } = await supabase
-      .from('global_daily_tasks')
-      .select('*')
-      .eq('task_date', todayDateString);
-    
-    if (globalTasksError) {
-      console.error('Error loading global daily tasks:', globalTasksError);
-      throw globalTasksError;
-    }
-    
-    // If we don't have today's global tasks, generate them
-    if (!globalTasks || globalTasks.length === 0) {
-      console.log('No global tasks for today, generating new ones');
-      await generateGlobalDailyTasks(todayDateString);
-      
-      // Fetch the newly created tasks
-      const { data: newTasks, error: newTasksError } = await supabase
+    // First, check if global_daily_tasks table exists by querying it
+    try {
+      // Try to get today's global tasks
+      const { data: globalTasks, error: globalTasksError } = await supabase
         .from('global_daily_tasks')
         .select('*')
         .eq('task_date', todayDateString);
-      
-      if (newTasksError) {
-        console.error('Error loading newly created global tasks:', newTasksError);
-        throw newTasksError;
-      }
-      
-      dailyTasks = newTasks || [];
-    } else {
-      dailyTasks = globalTasks;
-    }
-    
-    // If user is authenticated, we need to check if they've completed any of today's tasks
-    if (user) {
-      const { data: userCompletions, error: userCompletionsError } = await supabase
-        .from('user_task_completions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('task_date', todayDateString);
-      
-      if (userCompletionsError) {
-        console.error('Error loading user task completions:', userCompletionsError);
-        throw userCompletionsError;
-      }
-      
-      // Mark tasks as completed if the user has completed them
-      if (userCompletions && userCompletions.length > 0) {
-        const completedTaskIds = userCompletions.map(completion => completion.task_id);
-        
-        dailyTasks = dailyTasks.map(task => {
-          if (completedTaskIds.includes(task.id)) {
-            return { ...task, completed: true };
+
+      // If there's no error, the table exists
+      if (!globalTasksError) {
+        // If we don't have today's global tasks, generate them
+        if (!globalTasks || globalTasks.length === 0) {
+          console.log('No global tasks for today, generating new ones');
+          await generateGlobalDailyTasks(todayDateString);
+          
+          // Fetch the newly created tasks
+          const { data: newTasks, error: newTasksError } = await supabase
+            .from('global_daily_tasks')
+            .select('*')
+            .eq('task_date', todayDateString);
+          
+          if (newTasksError) {
+            console.error('Error loading newly created global tasks:', newTasksError);
+            throw newTasksError;
           }
-          return { ...task, completed: false };
-        });
-      } else {
-        // No completions found, mark all as not completed
-        dailyTasks = dailyTasks.map(task => ({ ...task, completed: false }));
-      }
-    } else {
-      // For anonymous users, check localStorage for completions
-      const storedCompletions = localStorage.getItem(`task_completions_${todayDateString}`);
-      
-      if (storedCompletions) {
-        const completedTaskIds = JSON.parse(storedCompletions);
+          
+          dailyTasks = newTasks || [];
+        } else {
+          dailyTasks = globalTasks;
+        }
         
-        dailyTasks = dailyTasks.map(task => {
-          if (completedTaskIds.includes(task.id)) {
-            return { ...task, completed: true };
+        // If user is authenticated, we need to check if they've completed any of today's tasks
+        if (user) {
+          // Check if the user_task_completions table exists
+          try {
+            const { data: userCompletions, error: userCompletionsError } = await supabase
+              .from('user_task_completions')
+              .select('*')
+              .eq('user_id', user.id)
+              .eq('task_date', todayDateString);
+            
+            if (!userCompletionsError) {
+              // Mark tasks as completed if the user has completed them
+              if (userCompletions && userCompletions.length > 0) {
+                const completedTaskIds = userCompletions.map(completion => completion.task_id);
+                
+                dailyTasks = dailyTasks.map(task => {
+                  if (completedTaskIds.includes(task.id)) {
+                    return { ...task, completed: true };
+                  }
+                  return { ...task, completed: false };
+                });
+              } else {
+                // No completions found, mark all as not completed
+                dailyTasks = dailyTasks.map(task => ({ ...task, completed: false }));
+              }
+            } else {
+              // If there's an error with user_task_completions table, just mark all tasks as not completed
+              console.warn('Error checking user completions, marking all tasks as not completed:', userCompletionsError);
+              dailyTasks = dailyTasks.map(task => ({ ...task, completed: false }));
+            }
+          } catch (error) {
+            console.warn('Error checking user completions, marking all tasks as not completed:', error);
+            dailyTasks = dailyTasks.map(task => ({ ...task, completed: false }));
           }
-          return { ...task, completed: false };
-        });
+        } else {
+          // For anonymous users, check localStorage for completions
+          const storedCompletions = localStorage.getItem(`task_completions_${todayDateString}`);
+          
+          if (storedCompletions) {
+            const completedTaskIds = JSON.parse(storedCompletions);
+            
+            dailyTasks = dailyTasks.map(task => {
+              if (completedTaskIds.includes(task.id)) {
+                return { ...task, completed: true };
+              }
+              return { ...task, completed: false };
+            });
+          } else {
+            // No completions found, mark all as not completed
+            dailyTasks = dailyTasks.map(task => ({ ...task, completed: false }));
+          }
+        }
       } else {
-        // No completions found, mark all as not completed
-        dailyTasks = dailyTasks.map(task => ({ ...task, completed: false }));
+        // The global_daily_tasks table doesn't exist yet or other error
+        console.warn('Global tasks table not found or error:', globalTasksError);
+        // Fall back to the original implementation or use local tasks
+        dailyTasks = [];
       }
+    } catch (error) {
+      console.warn('Error checking global tasks, falling back to empty tasks:', error);
+      dailyTasks = [];
     }
     
     // Display the tasks
@@ -1182,6 +1154,8 @@ async function loadDailyTasks() {
   } catch (error) {
     console.error('Error in loadDailyTasks:', error);
     showNotification('Günlük görevler yüklenirken bir hata oluştu.', 'error');
+    // Set dailyTasks to empty array to prevent undefined errors
+    dailyTasks = [];
   }
 }
 
