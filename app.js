@@ -304,6 +304,16 @@ function setupEventListeners() {
         item.classList.remove('hover');
       });
     });
+    
+    // Add event delegation for daily task completion buttons
+    document.addEventListener('click', function(e) {
+      if (e.target.classList.contains('complete-task-btn') && !e.target.hasAttribute('disabled')) {
+        const taskItem = e.target.closest('.daily-task-item');
+        if (taskItem && taskItem.dataset.taskId) {
+          completeTask(taskItem.dataset.taskId);
+        }
+      }
+    });
   } catch (error) {
     console.error('Error setting up event listeners:', error);
   }
@@ -710,6 +720,10 @@ async function toggleGoalCompletion(li, span, button) {
   // Save progress (works for both authenticated and non-authenticated users)
   await saveUserProgress();
 }
+
+// Make toggleGoalCompletion accessible globally
+window.toggleGoalCompletion = toggleGoalCompletion;
+export { toggleGoalCompletion };
 
 /**
  * Update progress and points
@@ -1399,5 +1413,6 @@ export {
   renderDailyTasks,
   refreshDailyTasks,
   handleLogout,
-  showNotification
+  showNotification,
+  toggleGoalCompletion
 } 

@@ -1217,6 +1217,26 @@
         }
       });
 
+      // Add event delegation for toggle buttons (Geri Al/Tamamla buttons)
+      document.addEventListener('click', function(e) {
+        // Handle goal completion toggle buttons
+        if (e.target.classList.contains('toggle-button')) {
+          const goalItem = e.target.closest('.goal-item');
+          const goalText = goalItem.querySelector('.goal-text');
+          
+          if (goalItem && goalText) {
+            // Get the toggleGoalCompletion function from the module
+            import('./app.js').then(module => {
+              if (typeof module.toggleGoalCompletion === 'function') {
+                module.toggleGoalCompletion(goalItem, goalText, e.target);
+              } else {
+                console.error('toggleGoalCompletion function not found in app.js');
+              }
+            });
+          }
+        }
+      });
+
       // Add smooth scroll behavior
       document.documentElement.style.scrollBehavior = 'smooth';
       
