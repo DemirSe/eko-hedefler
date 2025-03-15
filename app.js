@@ -723,7 +723,6 @@ async function toggleGoalCompletion(li, span, button) {
 
 // Make toggleGoalCompletion accessible globally
 window.toggleGoalCompletion = toggleGoalCompletion;
-export { toggleGoalCompletion };
 
 /**
  * Update progress and points
@@ -1338,14 +1337,6 @@ function renderDailyTasks() {
           </button>
         </div>
       `;
-      
-      // Add event listener for completing the task
-      const completeBtn = taskItem.querySelector('.complete-task-btn');
-      if (!task.completed && completeBtn) {
-        completeBtn.addEventListener('click', () => {
-          completeTask(task.id);
-        });
-      }
       
       tasksList.appendChild(taskItem);
     });
