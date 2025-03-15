@@ -91,8 +91,25 @@ const categories = {
   }
 };
 
+// Sample daily tasks that can be assigned
+const dailyTaskTemplates = [
+  { category: "electricity", text: "Bugün en az 1 saat ışıkları kapatın", points: 5 },
+  { category: "electricity", text: "Bekleme modundaki cihazları fişten çekin", points: 8 },
+  { category: "electricity", text: "Bilgisayarınızı enerji tasarrufu modunda kullanın", points: 5 },
+  { category: "water", text: "Bugün kısa duş alın (5 dakikadan az)", points: 10 },
+  { category: "water", text: "Su tasarrufu için musluk başlıklarını kontrol edin", points: 5 },
+  { category: "water", text: "Suyu yeniden kullanma yöntemleri araştırın", points: 5 },
+  { category: "waste", text: "Bugün geri dönüşüm yapın", points: 8 },
+  { category: "waste", text: "Tek kullanımlık ürün kullanmamaya çalışın", points: 10 },
+  { category: "waste", text: "Atık azaltma planı yapın", points: 5 },
+  { category: "energy", text: "Bugün klimayı 1 saat daha az çalıştırın", points: 8 },
+  { category: "energy", text: "Enerji verimliliği yüksek bir elektrikli ev aleti araştırın", points: 5 },
+  { category: "energy", text: "Güneş enerjisinden nasıl faydalanabileceğinizi araştırın", points: 5 }
+];
+
 let completedGoals = new Set();
 let totalPoints = 0;
+let dailyTasks = [];
 const maxPoints = Object.values(categories).reduce((sum, category) => 
   sum + category.goals.reduce((catSum, goal) => catSum + goal.points, 0), 0);
 
@@ -103,7 +120,8 @@ let elements = {};
 const STORAGE_KEYS = {
   COMPLETED_GOALS: 'ecoGoalsCompleted',
   POINTS: 'ecoGoalsPoints',
-  LAST_UPDATED: 'ecoGoalsLastUpdated'
+  LAST_UPDATED: 'ecoGoalsLastUpdated',
+  DAILY_TASKS: 'ecoDailyTasks'
 };
 
 /**
@@ -148,171 +166,237 @@ async function initApp() {
       document.getElementById('login-btn').addEventListener('click', () => {
         window.location.href = 'login.html';
       });
+      
       document.getElementById('register-btn').addEventListener('click', () => {
         window.location.href = 'signup.html';
       });
     }
     
-    // Cache DOM elements
-    elements = {
-      categoriesContainer: document.getElementById('categories-container'),
-      progressFill: document.getElementById('progressFill'),
-      totalPoints: document.getElementById('totalPoints'),
-      progressContainer: document.querySelector('.progress-container')
-    };
-
-    // Load saved data from Supabase or localStorage
-    let dataLoaded = false;
-    if (user) {
-      // If logged in, try to load from Supabase
-      dataLoaded = await loadUserProgress();
-    } else {
-      // If not logged in, only try to load from localStorage
-      dataLoaded = loadFromLocalStorage();
-    }
-    
-    // Then render categories with the loaded data
-    renderCategories();
+    // Set up event listeners for the application
     setupEventListeners();
+    
+    // Load user progress data (goals, points, etc.)
+    await loadUserProgress();
+    
+    // Load daily tasks
+    await loadDailyTasks();
+    
+    // Render the UI
+    renderCategories();
     updateProgress();
+    
+    // Update last sync time display
+    displayLastUpdated();
+    
+    // Clean up any stale local data
+    cleanupStaleData();
+    
+    // Add a class to the body to indicate the app is initialized
+    document.body.classList.add('app-initialized');
+    
   } catch (error) {
     console.error('Error initializing app:', error);
-    // Fallback to basic functionality with localStorage
-    loadFromLocalStorage();
-    renderCategories();
-    setupEventListeners();
-    updateProgress();
+    showNotification('Uygulama başlatılırken bir hata oluştu. Lütfen sayfayı yenileyin.', 'error');
   }
 }
 
 /**
- * Set up event listeners using event delegation
+ * Setup event listeners for the application
  */
 function setupEventListeners() {
-  // Event delegation for goal buttons
-  elements.categoriesContainer.addEventListener('click', async (event) => {
-    const button = event.target.closest('button');
-    if (!button || !button.classList.contains('toggle-button')) return; // Not a toggle button click
-    
-    const goalItem = button.closest('.goal-item');
-    if (!goalItem) return;
-    
-    const goalId = goalItem.dataset.goalId;
-    if (!goalId) return;
-    
-    const [categoryId, ...goalTextParts] = goalId.split('-');
-    const goalText = goalTextParts.join('-'); // In case goal text has hyphens
-    
-    const goal = categories[categoryId]?.goals.find(g => g.text === goalText);
-    if (!goal) return;
-    
-    const textSpan = goalItem.querySelector('.goal-text');
-    
-    // Toggle goal completion
-    if (completedGoals.has(goalId)) {
-      completedGoals.delete(goalId);
-      totalPoints -= goal.points;
-      textSpan.classList.remove('completed');
-      button.classList.remove('completed');
-      button.textContent = 'Tamamla';
-    } else {
-      completedGoals.add(goalId);
-      totalPoints += goal.points;
-      textSpan.classList.add('completed');
-      button.classList.add('completed');
-      button.textContent = 'Geri Al';
-    }
-    
-    // Update progress and save
-    updateProgress();
-    await saveUserProgress();
+  // Set up filter buttons
+  const filterBtns = document.querySelectorAll('.filter-btn');
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      // Remove active class from all buttons
+      filterBtns.forEach(b => b.classList.remove('active'));
+      // Add active class to clicked button
+      e.target.classList.add('active');
+      // Apply the filter
+      applyFilter(e.target.dataset.filter);
+    });
   });
+  
+  // Daily tasks refresh button
+  const refreshTasksBtn = document.getElementById('refresh-tasks');
+  refreshTasksBtn.addEventListener('click', refreshDailyTasks);
+  
+  // Theme toggle
+  const themeToggle = document.getElementById('themeToggle');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+    });
+  }
+  
+  // Scroll to top button
+  const scrollToTopBtn = document.getElementById('scrollToTop');
+  if (scrollToTopBtn) {
+    scrollToTopBtn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    
+    // Show/hide scroll to top button based on scroll position
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 300) {
+        scrollToTopBtn.classList.add('visible');
+      } else {
+        scrollToTopBtn.classList.remove('visible');
+      }
+    });
+  }
+  
+  // Pull to refresh on mobile
+  const pullIndicator = document.getElementById('pullIndicator');
+  let startY = 0;
+  let pullDistance = 0;
+  const REFRESH_THRESHOLD = 100;
+  let isPulling = false;
+  let isRefreshing = false;
+  
+  // Add touch events only on mobile devices
+  if (window.matchMedia('(max-width: 768px)').matches) {
+    document.addEventListener('touchstart', (e) => {
+      // Only enable pull to refresh if at the top of the page
+      if (window.scrollY === 0) {
+        startY = e.touches[0].clientY;
+        isPulling = true;
+      }
+    }, { passive: true });
+    
+    document.addEventListener('touchmove', (e) => {
+      if (!isPulling || isRefreshing) return;
+      
+      const currentY = e.touches[0].clientY;
+      pullDistance = currentY - startY;
+      
+      if (pullDistance > 0 && window.scrollY === 0) {
+        // Pull down detected at the top of the page
+        pullIndicator.style.transform = `translateY(${Math.min(pullDistance * 0.5, REFRESH_THRESHOLD)}px)`;
+        pullIndicator.classList.add('visible');
+        
+        if (pullDistance > REFRESH_THRESHOLD) {
+          pullIndicator.textContent = 'Yenilemek için bırakın';
+        } else {
+          pullIndicator.textContent = 'Yenilemek için çekin';
+        }
+        
+        // Prevent default scrolling when pulling down
+        e.preventDefault();
+      }
+    }, { passive: false });
+    
+    document.addEventListener('touchend', async () => {
+      if (!isPulling || isRefreshing) return;
+      
+      if (pullDistance > REFRESH_THRESHOLD) {
+        // Pull distance exceeded threshold, trigger refresh
+        isRefreshing = true;
+        pullIndicator.textContent = 'Yenileniyor...';
+        pullIndicator.classList.add('refreshing');
+        
+        // Reload app data
+        try {
+          await loadUserProgress();
+          await loadDailyTasks();
+          renderCategories();
+          updateProgress();
+          showNotification('Veriler güncellendi');
+        } catch (error) {
+          console.error('Pull to refresh error:', error);
+          showNotification('Yenileme sırasında bir hata oluştu', 'error');
+        }
+        
+        // Reset after a delay
+        setTimeout(() => {
+          isRefreshing = false;
+          pullIndicator.classList.remove('refreshing');
+          pullIndicator.classList.remove('visible');
+          pullIndicator.style.transform = 'translateY(-100%)';
+        }, 1000);
+      } else {
+        // Pull distance did not exceed threshold, reset
+        pullIndicator.classList.remove('visible');
+        pullIndicator.style.transform = 'translateY(-100%)';
+      }
+      
+      isPulling = false;
+      pullDistance = 0;
+    }, { passive: true });
+  }
 }
 
 /**
- * Save user progress to Supabase
+ * Save the user's progress to Supabase
+ * @returns {boolean} Whether the save was successful
  */
 async function saveUserProgress() {
   try {
-    const user = await auth.getCurrentUser();
+    // If user is not authenticated, save to localStorage instead
+    const user = await checkAuth();
+    if (!user) {
+      return saveToLocalStorage();
+    }
     
-    // Always store in localStorage regardless of authentication
-    saveToLocalStorage();
+    const userId = user.id;
     
-    // If user is authenticated, also store in Supabase
-    if (user) {
-      console.log('Saving to Supabase:', { completedGoals, totalPoints });
-      
-      const completedGoalsArray = Array.from(completedGoals);
-      
-      // Recalculate totalPoints from completedGoals to ensure accuracy
-      let calculatedPoints = 0;
-      completedGoalsArray.forEach(goalId => {
-        const [categoryId, ...goalTextParts] = goalId.split('-');
-        const goalText = goalTextParts.join('-');
-        const goal = categories[categoryId]?.goals.find(g => g.text === goalText);
-        if (goal) {
-          calculatedPoints += goal.points;
+    // Convert Set to Array for storage
+    const completedGoalsArray = Array.from(completedGoals);
+    
+    // Calculate total points from completed goals and daily tasks
+    let calculatedPoints = 0;
+    
+    // Add points from completed goals
+    completedGoalsArray.forEach(goalId => {
+      const [categoryId, ...goalTextParts] = goalId.split('-');
+      const goalText = goalTextParts.join('-');
+      const goal = categories[categoryId]?.goals.find(g => g.text === goalText);
+      if (goal) {
+        calculatedPoints += goal.points;
+      }
+    });
+    
+    // Add points from completed daily tasks
+    if (dailyTasks && dailyTasks.length > 0) {
+      dailyTasks.forEach(task => {
+        if (task.completed) {
+          calculatedPoints += task.points;
         }
       });
-      
-      // Use calculated points to ensure consistency
-      totalPoints = calculatedPoints;
-      
-      const userData = {
-        user_id: user.id,
+    }
+    
+    // Update the total points
+    totalPoints = calculatedPoints;
+    
+    // Save user progress to Supabase
+    const { data, error } = await supabase
+      .from('user_progress')
+      .upsert({
+        user_id: userId,
         completed_goals: completedGoalsArray,
         points: totalPoints,
         last_updated: new Date().toISOString()
-      };
-      
-      // Save to Supabase
-      const { error } = await supabase
-        .from('user_progress')
-        .upsert(
-          userData,
-          { onConflict: 'user_id' }
-        );
-      
-      if (error) {
-        console.error('Error saving to Supabase:', error);
-        
-        // Check if it's an authentication error (401)
-        if (error.code === 'PGRST301' || error.status === 401) {
-          console.warn('Authentication token may have expired. Attempting to refresh session...');
-          
-          // Attempt to refresh the session
-          const { error: refreshError } = await supabase.auth.refreshSession();
-          
-          if (refreshError) {
-            console.error('Failed to refresh session:', refreshError);
-            // Clear any stored user data since the session is invalid
-            await auth.signOut();
-            // Notify the user their session has expired
-            alert('Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
-            // Redirect to login page
-            window.location.href = 'login.html';
-            return;
-          } else {
-            // Session refreshed successfully, try saving data again
-            console.log('Session refreshed, retrying data save...');
-            return saveUserProgress(); // Recursively try again with new token
-          }
-        }
-        
-        throw error;
-      }
-      
-      // Update points display after saving
-      updateProgress();
+      }, { onConflict: 'user_id' })
+      .select();
+    
+    if (error) {
+      console.error('Error saving user progress:', error);
+      throw error;
     }
     
-    // Update last updated display
-    displayLastUpdated();
+    // Show a success notification if we inserted/updated
+    if (data) {
+      updateProgress();
+      displayLastUpdated(new Date());
+    }
+    
+    return true;
   } catch (error) {
-    console.error('Failed to save progress:', error);
-    // Fallback to localStorage only
-    saveToLocalStorage();
+    console.error('Error in saveUserProgress:', error);
+    return false;
   }
 }
 
@@ -336,72 +420,76 @@ function saveToLocalStorage() {
 }
 
 /**
- * Load user progress from Supabase
+ * Load user progress from Supabase or localStorage
+ * @returns {boolean} Whether the load was successful
  */
 async function loadUserProgress() {
   try {
-    const user = await auth.getCurrentUser();
-    if (!user) return false;
+    // Get the current authenticated user
+    const user = await checkAuth();
     
-    // Try to load from Supabase
-    const { data, error } = await supabase
-      .from('user_progress')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
-    
-    if (error) {
-      console.error('Error loading from Supabase:', error);
+    if (user) {
+      // User is authenticated, load from Supabase
+      const { data, error } = await supabase
+        .from('user_progress')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
       
-      // Check if it's an authentication error (401)
-      if (error.code === 'PGRST301' || error.status === 401) {
-        console.warn('Authentication token may have expired. Attempting to refresh session...');
-        
-        // Attempt to refresh the session
-        const { error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError) {
-          console.error('Failed to refresh session:', refreshError);
-          // Clear any stored user data since the session is invalid
-          await auth.signOut();
-          // Notify the user their session has expired
-          alert('Oturumunuz sona erdi. Lütfen tekrar giriş yapın.');
-          // Redirect to login page
-          window.location.href = 'login.html';
-          return false;
-        } else {
-          // Session refreshed successfully, try loading data again
-          console.log('Session refreshed, retrying data load...');
-          return loadUserProgress(); // Recursively try again with new token
+      if (error) {
+        // If no data found for this user, that's not really an error
+        if (error.code === 'PGRST116') {
+          console.log('No saved progress found for user, starting fresh');
+          completedGoals = new Set();
+          totalPoints = 0;
+          return true;
         }
+        
+        console.error('Error loading user progress:', error);
+        throw error;
       }
       
-      // For other errors, fallback to localStorage
+      if (data) {
+        // Load data from Supabase
+        completedGoals = new Set(data.completed_goals || []);
+        
+        // Calculate points from completed daily tasks
+        let dailyTasksPoints = 0;
+        if (dailyTasks && dailyTasks.length > 0) {
+          dailyTasks.forEach(task => {
+            if (task.completed) {
+              dailyTasksPoints += task.points;
+            }
+          });
+        }
+        
+        // Calculate points from completed goals
+        let completedGoalsPoints = 0;
+        completedGoals.forEach(goalId => {
+          const [categoryId, ...goalTextParts] = goalId.split('-');
+          const goalText = goalTextParts.join('-');
+          const goal = categories[categoryId]?.goals.find(g => g.text === goalText);
+          if (goal) {
+            completedGoalsPoints += goal.points;
+          }
+        });
+        
+        // Update total points
+        totalPoints = completedGoalsPoints + dailyTasksPoints;
+        
+        // Update UI
+        displayLastUpdated(new Date(data.last_updated));
+        return true;
+      }
+    } else {
+      // User is not authenticated, load from localStorage
       return loadFromLocalStorage();
     }
     
-    if (data) {
-      completedGoals = new Set(data.completed_goals);
-      totalPoints = data.points;
-      
-      // Also update localStorage as backup
-      localStorage.setItem(STORAGE_KEYS.COMPLETED_GOALS, JSON.stringify(data.completed_goals));
-      localStorage.setItem(STORAGE_KEYS.POINTS, data.points.toString());
-      localStorage.setItem(STORAGE_KEYS.LAST_UPDATED, data.last_updated);
-      
-      displayLastUpdated();
-      
-      // Update UI after loading data from Supabase
-      renderCategories();
-      updateProgress();
-      
-      return true;
-    } else {
-      // No data found in Supabase, try localStorage
-      return loadFromLocalStorage();
-    }
+    return false;
   } catch (error) {
-    console.error('Failed to load progress from Supabase:', error);
+    console.error('Error in loadUserProgress:', error);
+    
     // Fallback to localStorage
     return loadFromLocalStorage();
   }
@@ -917,39 +1005,32 @@ function showNotification(message, type = 'success') {
 }
 
 /**
- * Handle user logout by clearing all user data
+ * Handle user logout
  */
 async function handleLogout() {
   try {
-    // Show confirmation dialog
-    const confirmLogout = confirm('Çıkış yapmak istediğinize emin misiniz? Giriş yapmadığınız durumda ilerlemeniz kaydedilmeyecektir.');
-    
-    if (!confirmLogout) {
-      return; // User cancelled the logout
-    }
-    
     // Sign out from Supabase
-    await auth.signOut();
+    await supabase.auth.signOut();
     
-    // Clear user data from localStorage
+    // Clear all user-related data from localStorage
+    localStorage.removeItem('user');
     localStorage.removeItem(STORAGE_KEYS.COMPLETED_GOALS);
     localStorage.removeItem(STORAGE_KEYS.POINTS);
     localStorage.removeItem(STORAGE_KEYS.LAST_UPDATED);
-    localStorage.removeItem('user');
+    localStorage.removeItem(STORAGE_KEYS.DAILY_TASKS);
     
-    // Clear any session storage data as well
-    sessionStorage.removeItem('temp_' + STORAGE_KEYS.COMPLETED_GOALS);
-    sessionStorage.removeItem('temp_' + STORAGE_KEYS.POINTS);
-    sessionStorage.removeItem('temp_' + STORAGE_KEYS.LAST_UPDATED);
-    sessionStorage.removeItem('show_merge_prompt');
+    // Reset application state
+    completedGoals = new Set();
+    totalPoints = 0;
+    dailyTasks = [];
     
-    // Show a notification that the user has logged out
-    showNotification('Başarıyla çıkış yaptınız!', 'success');
+    // Clear UI and re-render for a guest user
+    renderCategories();
+    renderDailyTasks();
+    updateProgress();
     
-    // Reload the page to reset the UI
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000); // Short delay to allow the notification to be seen
+    // Refresh the page to ensure clean state
+    window.location.reload();
   } catch (error) {
     console.error('Error during logout:', error);
     showNotification('Çıkış yapılırken bir hata oluştu.', 'error');
@@ -976,5 +1057,440 @@ function cleanupStaleData() {
     localStorage.removeItem(STORAGE_KEYS.POINTS);
     localStorage.removeItem(STORAGE_KEYS.LAST_UPDATED);
     localStorage.removeItem('user');
+  }
+}
+
+/**
+ * Load the user's daily tasks
+ */
+async function loadDailyTasks() {
+  try {
+    const user = await checkAuth();
+    
+    if (user) {
+      // User is authenticated, load tasks from the database
+      const { data, error } = await supabase
+        .from('daily_tasks')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('expires_at', new Date().toISOString())
+        .order('date_assigned', { ascending: false });
+      
+      if (error) {
+        console.error('Error loading daily tasks:', error);
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        dailyTasks = data;
+      } else {
+        // No active tasks, generate new ones
+        dailyTasks = await generateDailyTasks(user.id);
+      }
+    } else {
+      // User is not authenticated, load from localStorage
+      const storedTasks = localStorage.getItem(STORAGE_KEYS.DAILY_TASKS);
+      
+      if (storedTasks) {
+        dailyTasks = JSON.parse(storedTasks);
+        
+        // Filter out expired tasks
+        const now = new Date();
+        dailyTasks = dailyTasks.filter(task => new Date(task.expires_at) > now);
+        
+        // If all tasks expired, generate new ones
+        if (dailyTasks.length === 0) {
+          dailyTasks = generateDailyTasksForAnonymousUser();
+          localStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(dailyTasks));
+        }
+      } else {
+        // No stored tasks, generate new ones
+        dailyTasks = generateDailyTasksForAnonymousUser();
+        localStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(dailyTasks));
+      }
+    }
+    
+    // Display the tasks
+    renderDailyTasks();
+    
+  } catch (error) {
+    console.error('Error in loadDailyTasks:', error);
+    showNotification('Günlük görevler yüklenirken bir hata oluştu.', 'error');
+  }
+}
+
+/**
+ * Generate random daily tasks for a user
+ * @param {string} userId - The user ID
+ * @returns {Array} - The generated tasks
+ */
+async function generateDailyTasks(userId) {
+  try {
+    // Select 3 random tasks from the templates
+    const selectedTasks = getRandomTasks(dailyTaskTemplates, 3);
+    
+    // Create the tasks in the database
+    const tasks = [];
+    
+    for (const template of selectedTasks) {
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 1); // Tasks expire after 1 day
+      
+      const newTask = {
+        user_id: userId,
+        task_text: template.text,
+        category: template.category,
+        points: template.points,
+        completed: false,
+        date_assigned: new Date().toISOString(),
+        expires_at: expiryDate.toISOString()
+      };
+      
+      // Insert the task into the database
+      const { data, error } = await supabase.from('daily_tasks').insert(newTask).select();
+      
+      if (error) {
+        console.error('Error creating daily task:', error);
+      } else if (data) {
+        tasks.push(data[0]);
+      }
+    }
+    
+    return tasks;
+  } catch (error) {
+    console.error('Error generating daily tasks:', error);
+    return [];
+  }
+}
+
+/**
+ * Generate random daily tasks for anonymous users
+ * @returns {Array} - The generated tasks
+ */
+function generateDailyTasksForAnonymousUser() {
+  // Select 3 random tasks from the templates
+  const selectedTasks = getRandomTasks(dailyTaskTemplates, 3);
+  
+  // Create the tasks
+  const tasks = [];
+  
+  for (const template of selectedTasks) {
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 1); // Tasks expire after 1 day
+    
+    const newTask = {
+      id: Date.now() + Math.floor(Math.random() * 1000), // Generate a unique ID
+      user_id: null,
+      task_text: template.text,
+      category: template.category,
+      points: template.points,
+      completed: false,
+      date_assigned: new Date().toISOString(),
+      expires_at: expiryDate.toISOString()
+    };
+    
+    tasks.push(newTask);
+  }
+  
+  return tasks;
+}
+
+/**
+ * Select random items from an array
+ * @param {Array} array - The array to select from
+ * @param {number} count - Number of items to select
+ * @returns {Array} - Selected items
+ */
+function getRandomTasks(array, count) {
+  const shuffled = [...array].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+}
+
+/**
+ * Render the daily tasks in the UI
+ */
+function renderDailyTasks() {
+  const tasksList = document.getElementById('daily-tasks-list');
+  const emptyMessage = document.getElementById('emptyTasksMessage');
+  
+  // Clear the current tasks
+  tasksList.innerHTML = '';
+  
+  if (dailyTasks.length === 0) {
+    // Show the empty message
+    emptyMessage.style.display = 'block';
+    tasksList.appendChild(emptyMessage);
+    return;
+  }
+  
+  // Hide the empty message
+  emptyMessage.style.display = 'none';
+  
+  // Add each task to the list
+  dailyTasks.forEach(task => {
+    const taskItem = document.createElement('div');
+    taskItem.className = `daily-task-item ${task.completed ? 'completed-task' : ''}`;
+    taskItem.dataset.taskId = task.id;
+    
+    const categoryIcon = getCategoryIcon(task.category);
+    const expiryTime = getExpiryTimeString(task.expires_at);
+    
+    taskItem.innerHTML = `
+      <div class="daily-task-info">
+        <div class="daily-task-text">${task.text}</div>
+        <div class="daily-task-meta">
+          <div class="daily-task-category">
+            <i>${categoryIcon}</i> ${getCategoryName(task.category)}
+          </div>
+          <div class="daily-task-expiry">${expiryTime}</div>
+        </div>
+      </div>
+      <div class="daily-task-actions">
+        <span class="task-points-badge">${task.points} Puan</span>
+        <button class="complete-task-btn" ${task.completed ? 'disabled' : ''}>
+          ${task.completed ? 'Tamamlandı' : 'Tamamla'}
+        </button>
+      </div>
+    `;
+    
+    // Add event listener for completing the task
+    const completeBtn = taskItem.querySelector('.complete-task-btn');
+    if (!task.completed) {
+      completeBtn.addEventListener('click', () => {
+        completeTask(task.id);
+      });
+    }
+    
+    tasksList.appendChild(taskItem);
+  });
+  
+  // Add "Add Custom Task" button
+  const addCustomBtn = document.createElement('button');
+  addCustomBtn.className = 'add-custom-task-btn';
+  addCustomBtn.textContent = '+ Özel Günlük Görev Ekle';
+  addCustomBtn.addEventListener('click', showAddTaskModal);
+  
+  tasksList.appendChild(addCustomBtn);
+}
+
+/**
+ * Get the icon for a category
+ * @param {string} categoryId - The category ID
+ * @returns {string} - The icon
+ */
+function getCategoryIcon(categoryId) {
+  return categories[categoryId] ? categories[categoryId].icon : '📝';
+}
+
+/**
+ * Get the name for a category
+ * @param {string} categoryId - The category ID
+ * @returns {string} - The name
+ */
+function getCategoryName(categoryId) {
+  return categories[categoryId] ? categories[categoryId].name : 'Diğer';
+}
+
+/**
+ * Get a friendly string showing when the task expires
+ * @param {string} expiryDateString - ISO date string
+ * @returns {string} - Friendly expiry time
+ */
+function getExpiryTimeString(expiryDateString) {
+  const expiryDate = new Date(expiryDateString);
+  const now = new Date();
+  
+  const hoursLeft = Math.round((expiryDate - now) / (1000 * 60 * 60));
+  
+  if (hoursLeft < 1) {
+    return 'Son 1 saat';
+  } else if (hoursLeft < 24) {
+    return `${hoursLeft} saat kaldı`;
+  } else {
+    return 'Yarın sona erecek';
+  }
+}
+
+/**
+ * Complete a daily task
+ * @param {number} taskId - The task ID
+ */
+async function completeTask(taskId) {
+  try {
+    const user = await checkAuth();
+    const taskIndex = dailyTasks.findIndex(task => task.id === taskId);
+    
+    if (taskIndex === -1) {
+      console.error('Task not found:', taskId);
+      return;
+    }
+    
+    // Update the task in our local array
+    dailyTasks[taskIndex].completed = true;
+    dailyTasks[taskIndex].date_completed = new Date().toISOString();
+    
+    // Add points
+    totalPoints += dailyTasks[taskIndex].points;
+    
+    if (user) {
+      // User is authenticated, update the database
+      const { error } = await supabase
+        .from('daily_tasks')
+        .update({
+          completed: true,
+          date_completed: new Date().toISOString()
+        })
+        .eq('id', taskId);
+      
+      if (error) {
+        console.error('Error updating task:', error);
+        showNotification('Görev güncellenirken bir hata oluştu.', 'error');
+        return;
+      }
+      
+      // Update user's points
+      await saveUserProgress();
+    } else {
+      // User is not authenticated, save to localStorage
+      localStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(dailyTasks));
+      localStorage.setItem(STORAGE_KEYS.POINTS, totalPoints.toString());
+    }
+    
+    // Update the UI
+    renderDailyTasks();
+    updateProgress();
+    
+    showNotification(`Tebrikler! ${dailyTasks[taskIndex].points} puan kazandınız.`);
+  } catch (error) {
+    console.error('Error completing task:', error);
+    showNotification('Görev tamamlanırken bir hata oluştu.', 'error');
+  }
+}
+
+/**
+ * Show the add task modal
+ */
+function showAddTaskModal() {
+  const modal = document.getElementById('add-task-modal');
+  modal.style.display = 'block';
+  
+  // Close when clicking the X
+  const closeBtn = modal.querySelector('.close-modal');
+  closeBtn.onclick = () => {
+    modal.style.display = 'none';
+  };
+  
+  // Close when clicking outside the modal
+  window.onclick = (event) => {
+    if (event.target === modal) {
+      modal.style.display = 'none';
+    }
+  };
+  
+  // Handle form submission
+  const form = document.getElementById('add-task-form');
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    addCustomTask();
+  };
+}
+
+/**
+ * Add a custom daily task
+ */
+async function addCustomTask() {
+  try {
+    const taskText = document.getElementById('task-text').value.trim();
+    const category = document.getElementById('task-category').value;
+    const points = parseInt(document.getElementById('task-points').value);
+    
+    if (!taskText || !category || isNaN(points)) {
+      showNotification('Lütfen tüm alanları doldurun.', 'error');
+      return;
+    }
+    
+    const user = await checkAuth();
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 1);
+    
+    const newTask = {
+      task_text: taskText,
+      category: category,
+      points: points,
+      completed: false,
+      date_assigned: new Date().toISOString(),
+      expires_at: expiryDate.toISOString()
+    };
+    
+    if (user) {
+      // User is authenticated, add to database
+      newTask.user_id = user.id;
+      
+      const { data, error } = await supabase.from('daily_tasks').insert(newTask).select();
+      
+      if (error) {
+        console.error('Error adding custom task:', error);
+        showNotification('Görev eklenirken bir hata oluştu.', 'error');
+        return;
+      }
+      
+      if (data) {
+        dailyTasks.push(data[0]);
+      }
+    } else {
+      // User is not authenticated, add to localStorage
+      newTask.id = Date.now() + Math.floor(Math.random() * 1000);
+      newTask.user_id = null;
+      
+      dailyTasks.push(newTask);
+      localStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(dailyTasks));
+    }
+    
+    // Close the modal
+    document.getElementById('add-task-modal').style.display = 'none';
+    
+    // Reset the form
+    document.getElementById('add-task-form').reset();
+    
+    // Update the UI
+    renderDailyTasks();
+    
+    showNotification('Yeni günlük görev eklendi.');
+  } catch (error) {
+    console.error('Error adding custom task:', error);
+    showNotification('Görev eklenirken bir hata oluştu.', 'error');
+  }
+}
+
+/**
+ * Refresh daily tasks
+ */
+async function refreshDailyTasks() {
+  try {
+    const user = await checkAuth();
+    
+    if (user) {
+      // Clear existing tasks in the database
+      await supabase
+        .from('daily_tasks')
+        .delete()
+        .eq('user_id', user.id)
+        .gte('expires_at', new Date().toISOString());
+      
+      // Generate new tasks
+      dailyTasks = await generateDailyTasks(user.id);
+    } else {
+      // User is not authenticated, generate new tasks for localStorage
+      dailyTasks = generateDailyTasksForAnonymousUser();
+      localStorage.setItem(STORAGE_KEYS.DAILY_TASKS, JSON.stringify(dailyTasks));
+    }
+    
+    // Update the UI
+    renderDailyTasks();
+    
+    showNotification('Günlük görevler yenilendi.');
+  } catch (error) {
+    console.error('Error refreshing daily tasks:', error);
+    showNotification('Görevler yenilenirken bir hata oluştu.', 'error');
   }
 } 

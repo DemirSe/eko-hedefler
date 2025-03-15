@@ -795,6 +795,262 @@
         padding-right: 15px;
       }
     }
+
+    /* Daily Tasks Styles */
+    .daily-tasks-container {
+      background: var(--container-bg);
+      border-radius: 10px;
+      margin-bottom: 2rem;
+      box-shadow: 0 2px 10px var(--shadow-color);
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 20px;
+      background: var(--primary-green);
+      color: white;
+    }
+
+    .section-header h2 {
+      margin: 0;
+      font-size: 1.3rem;
+    }
+
+    .refresh-btn {
+      background: white;
+      color: var(--primary-green);
+      border: none;
+      padding: 6px 12px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:hover {
+      background: #f0f0f0;
+      transform: scale(1.05);
+    }
+
+    #daily-tasks-list {
+      padding: 15px;
+    }
+
+    .daily-task-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+      transition: background-color 0.2s;
+    }
+
+    .daily-task-item:last-child {
+      border-bottom: none;
+    }
+
+    .daily-task-item:hover {
+      background-color: rgba(46, 204, 113, 0.05);
+    }
+
+    .daily-task-info {
+      flex: 1;
+    }
+
+    .daily-task-text {
+      margin-bottom: 5px;
+      font-size: 1rem;
+    }
+
+    .daily-task-meta {
+      display: flex;
+      align-items: center;
+      font-size: 0.85rem;
+      color: #777;
+    }
+
+    .daily-task-category {
+      margin-right: 15px;
+      display: flex;
+      align-items: center;
+    }
+
+    .daily-task-category i {
+      margin-right: 5px;
+    }
+
+    .daily-task-expiry {
+      font-style: italic;
+    }
+
+    .task-points-badge {
+      background: var(--light-green);
+      color: var(--text-color);
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: bold;
+      margin-right: 10px;
+      font-size: 0.9rem;
+    }
+
+    .complete-task-btn {
+      background: var(--primary-green);
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-width: 100px;
+    }
+
+    .complete-task-btn:hover {
+      background: var(--dark-green);
+      transform: translateY(-2px);
+    }
+
+    .complete-task-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .completed-task {
+      opacity: 0.6;
+    }
+
+    .completed-task .daily-task-text {
+      text-decoration: line-through;
+    }
+
+    .empty-tasks-message {
+      padding: 20px;
+      text-align: center;
+      color: #777;
+      font-style: italic;
+    }
+
+    .add-custom-task-btn {
+      background: transparent;
+      border: 2px dashed var(--primary-green);
+      color: var(--primary-green);
+      width: 100%;
+      padding: 15px;
+      text-align: center;
+      border-radius: 8px;
+      margin-top: 15px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .add-custom-task-btn:hover {
+      background: rgba(46, 204, 113, 0.1);
+    }
+
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      overflow: auto;
+    }
+
+    .modal-content {
+      background-color: var(--container-bg);
+      margin: 15% auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 500px;
+      position: relative;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .close-modal {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    .btn-primary {
+      background: var(--primary-green);
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .btn-primary:hover {
+      background: var(--dark-green);
+    }
+
+    /* Dark mode enhancements for daily tasks */
+    [data-theme="dark"] .daily-tasks-container {
+      background: #2a2a2a;
+    }
+
+    [data-theme="dark"] .task-points-badge {
+      background: #27ae60;
+      color: white;
+    }
+
+    [data-theme="dark"] .add-custom-task-btn {
+      border-color: #27ae60;
+      color: #27ae60;
+    }
+
+    [data-theme="dark"] .add-custom-task-btn:hover {
+      background: rgba(39, 174, 96, 0.15);
+    }
+
+    [data-theme="dark"] .daily-task-meta {
+      color: #aaa;
+    }
+
+    [data-theme="dark"] .empty-tasks-message {
+      color: #aaa;
+    }
+
+    [data-theme="dark"] .form-group input,
+    [data-theme="dark"] .form-group select {
+      background: #333;
+      border-color: #444;
+      color: #eee;
+    }
   </style>
 </head>
 <body>
@@ -832,6 +1088,20 @@
       </div>
     </div>
 
+    <!-- Daily Tasks Section -->
+    <div class="daily-tasks-container">
+      <div class="section-header">
+        <h2>Günlük Görevler</h2>
+        <button id="refresh-tasks" class="refresh-btn">Yenile</button>
+      </div>
+      <div id="daily-tasks-list">
+        <!-- Daily tasks will be displayed here -->
+        <div class="empty-tasks-message" id="emptyTasksMessage">
+          Bugün için günlük görev bulunmuyor. Yeni görevler almak için 'Yenile' düğmesine tıklayın.
+        </div>
+      </div>
+    </div>
+
     <div id="categories-container">
       <!-- Categories and goals will be generated here -->
     </div>
@@ -839,9 +1109,49 @@
   <div class="mobile-controls">
     <div class="scroll-to-top" id="scrollToTop">↑</div>
   </div>
+
+  <!-- Add Daily Task Modal -->
+  <div id="add-task-modal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal">&times;</span>
+      <h3>Özel Günlük Görev Ekle</h3>
+      <form id="add-task-form">
+        <div class="form-group">
+          <label for="task-text">Görev Metni:</label>
+          <input type="text" id="task-text" required>
+        </div>
+        <div class="form-group">
+          <label for="task-category">Kategori:</label>
+          <select id="task-category" required>
+            <option value="electricity">Elektrik Tasarrufu</option>
+            <option value="water">Su Tasarrufu</option>
+            <option value="waste">Atık Yönetimi</option>
+            <option value="energy">Enerji Verimliliği</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="task-points">Puan:</label>
+          <input type="number" id="task-points" min="1" max="30" value="5" required>
+        </div>
+        <button type="submit" class="btn-primary">Görev Ekle</button>
+      </form>
+    </div>
+  </div>
+
   <script>
     // Add this to your existing JavaScript
     document.addEventListener('DOMContentLoaded', function() {
+      // Initialize the application
+      import('./app.js').then(module => {
+        if (typeof module.initApp === 'function') {
+          module.initApp();
+        } else {
+          console.error('initApp function not found in app.js');
+        }
+      }).catch(error => {
+        console.error('Error loading app.js:', error);
+      });
+      
       // Theme toggle with background update
       const themeToggle = document.getElementById('themeToggle');
       const toggleBackground = document.querySelector('.theme-toggle');
