@@ -1108,8 +1108,10 @@ async function loadDailyTasks() {
       
       if (data && data.length > 0) {
         dailyTasks = data;
+        console.log('Loaded existing daily tasks for logged-in user:', data);
       } else {
         // No active tasks, generate new ones
+        console.log('No active tasks found for user, generating new ones');
         dailyTasks = await generateDailyTasks(user.id);
       }
     } else {
@@ -1151,6 +1153,7 @@ async function loadDailyTasks() {
  */
 async function generateDailyTasks(userId) {
   try {
+    console.log('Generating daily tasks for user ID:', userId);
     // Select 3 random tasks from the templates
     const selectedTasks = getRandomTasks(dailyTaskTemplates, 3);
     
@@ -1158,29 +1161,38 @@ async function generateDailyTasks(userId) {
     const tasks = [];
     
     for (const template of selectedTasks) {
+      if (!template || !template.category || (!template.text && !template.task_text)) {
+        console.warn('Invalid task template:', template);
+        continue;
+      }
+      
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + 1); // Tasks expire after 1 day
       
       const newTask = {
         user_id: userId,
-        task_text: template.text,
+        task_text: template.text || template.task_text,
         category: template.category,
-        points: template.points,
+        points: template.points || 5,
         completed: false,
         date_assigned: new Date().toISOString(),
         expires_at: expiryDate.toISOString()
       };
+      
+      console.log('Inserting new task:', newTask);
       
       // Insert the task into the database
       const { data, error } = await supabase.from('daily_tasks').insert(newTask).select();
       
       if (error) {
         console.error('Error creating daily task:', error);
-      } else if (data) {
+      } else if (data && data.length > 0) {
+        console.log('Successfully created task:', data[0]);
         tasks.push(data[0]);
       }
     }
     
+    console.log('Generated tasks:', tasks);
     return tasks;
   } catch (error) {
     console.error('Error generating daily tasks:', error);
@@ -1246,6 +1258,7 @@ function getRandomTasks(array, count) {
  */
 function renderDailyTasks() {
   try {
+    console.log('Rendering daily tasks:', dailyTasks);
     const tasksList = document.getElementById('daily-tasks-list');
     if (!tasksList) {
       console.error('daily-tasks-list element not found');
@@ -1368,17 +1381,28 @@ function getExpiryTimeString(expiryDateString) {
 
 /**
  * Complete a daily task
- * @param {number} taskId - The task ID
+ * @param {number|string} taskId - The task ID
  */
 async function completeTask(taskId) {
   try {
     const user = await checkAuth();
-    const taskIndex = dailyTasks.findIndex(task => task.id === taskId);
+    console.log('Completing task ID:', taskId);
+    console.log('Current daily tasks:', dailyTasks);
+    
+    // Convert taskId to the appropriate type for comparison
+    const taskIdToCompare = typeof taskId === 'string' && !isNaN(parseInt(taskId)) ? parseInt(taskId) : taskId;
+    
+    const taskIndex = dailyTasks.findIndex(task => {
+      const currentId = typeof task.id === 'string' && !isNaN(parseInt(task.id)) ? parseInt(task.id) : task.id;
+      return currentId === taskIdToCompare;
+    });
     
     if (taskIndex === -1) {
       console.error('Task not found:', taskId);
       return;
     }
+    
+    console.log('Found task at index:', taskIndex, dailyTasks[taskIndex]);
     
     // Update the task in our local array
     dailyTasks[taskIndex].completed = true;
@@ -1389,19 +1413,23 @@ async function completeTask(taskId) {
     
     if (user) {
       // User is authenticated, update the database
+      console.log('Updating task in database:', dailyTasks[taskIndex].id);
+      
       const { error } = await supabase
         .from('daily_tasks')
         .update({
           completed: true,
           date_completed: new Date().toISOString()
         })
-        .eq('id', taskId);
+        .eq('id', dailyTasks[taskIndex].id);
       
       if (error) {
         console.error('Error updating task:', error);
         showNotification('Görev güncellenirken bir hata oluştu.', 'error');
         return;
       }
+      
+      console.log('Successfully updated task in database');
       
       // Update user's points
       await saveUserProgress();
